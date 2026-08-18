@@ -1,0 +1,6 @@
+{
+  "name": "Eco-Rural Purificación",
+  "description": "Sistema de gestión de basura y aseo rural para las veredas de Purificación Tolima.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
