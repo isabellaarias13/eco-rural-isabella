@@ -16,8 +16,9 @@
 | **Librería de Animaciones** | **Motion (`motion/react`)** para transiciones fluidas de vista y modales |
 | **Iconografía** | **Lucide React** (Íconos vectoriales accesibles y ligeros) |
 | **Generación de Reportes** | **jsPDF** & **jspdf-autotable** (Exportación PDF oficial con membrete) y **CSV/Excel Export** |
-| **Motor de Base de Datos** | **MySQL 8.0+** / **MariaDB 10.4+** (Motor transaccional `InnoDB`, Charset `utf8mb4_unicode_ci`) |
-| **Persistencia Frontend / Offline** | **Reactive Store Centralizado** sincronizado automáticamente con **`localStorage`** |
+| **Motor de Base de Datos Cloud** | **Google Cloud Firestore (Firebase)** en tiempo real (Base de datos NoSQL documental activa) |
+| **Motor de Base de Datos Relacional** | **MySQL 8.0+** / **MariaDB 10.4+** (Scripts SQL completos incluidos en `/database`) |
+| **Persistencia Frontend / Offline** | **Reactive Store Centralizado** sincronizado con **Cloud Firestore** y **`localStorage`** |
 | **Patrón de Arquitectura** | **Modelo-Vista-Controlador (MVC)** con separación estricta de responsabilidades |
 
 ---
@@ -118,31 +119,40 @@ DB_NAME=ecorural_purificacion
 
 ---
 
-## 4. Configuración de la Base de Datos MySQL
+## 4. Configuración de Bases de Datos
 
-En el directorio **`/database`** encontrarás los scripts SQL estructurados listos para ser importados en tu servidor MySQL.
+### A. Base de Datos en la Nube: Google Firebase (Cloud Firestore)
+La aplicación cuenta con sincronización nativa en tiempo real con **Google Cloud Firestore**.
+- **Configuración del proyecto**: Los parámetros de acceso están definidos en `firebase-applet-config.json`.
+- **Esquema Documental**: Definido en `firebase-blueprint.json` para las colecciones `/users`, `/trucks`, `/routes`, `/collections`, `/alerts` y `/notifications`.
+- **Reglas de Seguridad**: Desplegadas y validadas mediante `firestore.rules`.
+- **Sincronización Automática**: El modelo reactivo (`src/models/store.ts`) mantiene sincronizados los datos locales con Firebase en segundo plano con soporte offline.
 
-### Archivos disponibles en `/database`:
+### B. Base de Datos Relacional: MySQL / MariaDB (Scripts SQL)
+
+En el directorio **`/database`** encontrarás los scripts SQL estructurados si requieres montar un servidor de base de datos relacional propio:
+
+#### Archivos disponibles en `/database`:
 1. **`init_database.sql`** *(Recomendado)*: Script unificado que crea la base de datos `ecorural_purificacion`, todas las tablas con sus claves foráneas, vistas analíticas y todos los datos iniciales de Purificación.
 2. **`schema.sql`**: Definición de la estructura de tablas (DDL), índices y vistas.
 3. **`seed.sql`**: Inserción de datos iniciales (DML) con veredas, usuarios, camiones y rutas.
 
-### Métodos de Importación:
+#### Métodos de Importación MySQL:
 
-#### A. Por Terminal / Consola MySQL (Más rápido)
+##### 1. Por Terminal / Consola MySQL (Más rápido)
 Ejecuta el siguiente comando en la raíz del proyecto:
 ```bash
 mysql -u root -p < database/init_database.sql
 ```
 *(Ingresa tu contraseña de MySQL cuando sea solicitada).*
 
-#### B. Mediante phpMyAdmin (XAMPP / WAMP / Laragon)
+##### 2. Mediante phpMyAdmin (XAMPP / WAMP / Laragon)
 1. Abre tu navegador e ingresa a `http://localhost/phpmyadmin`.
 2. Haz clic en la pestaña **Importar** (Import).
 3. En **Archivo a importar**, selecciona el archivo `database/init_database.sql`.
 4. Haz clic en **Continuar** o **Importar**.
 
-#### C. Mediante MySQL Workbench
+##### 3. Mediante MySQL Workbench
 1. Abre MySQL Workbench y conéctate a tu instancia local.
 2. Ve a **File** > **Open SQL Script...** y selecciona `database/init_database.sql`.
 3. Presiona el botón del rayo ⚡ (**Execute**) para ejecutar todo el script.

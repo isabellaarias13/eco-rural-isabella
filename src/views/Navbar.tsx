@@ -9,7 +9,9 @@ import {
   CheckCircle2, 
   PhoneCall, 
   BookOpen,
-  ChevronDown
+  ChevronDown,
+  Database,
+  CloudCheck
 } from 'lucide-react';
 import { User, AppNotification } from '../types';
 import { modelStore } from '../models/store';
@@ -31,12 +33,14 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenGuideModal
 }) => {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [firebaseConnected, setFirebaseConnected] = useState(true);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
     const update = () => {
       setNotifications(modelStore.getNotifications());
+      setFirebaseConnected(modelStore.isFirebaseConnected());
     };
     update();
     return modelStore.subscribe(update);
@@ -69,6 +73,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           <span className="font-medium text-white">Municipio de Purificación, Tolima</span>
           <span className="hidden sm:inline text-emerald-400">|</span>
           <span className="hidden sm:inline">Zona Rural &middot; Cuidado del Aire y la Fauna</span>
+          <span className="hidden md:inline-flex items-center gap-1 bg-emerald-800/80 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full border border-emerald-600/50">
+            <Database className="w-2.5 h-2.5 text-emerald-400" />
+            <span>Cloud Firestore Conectado</span>
+          </span>
         </div>
         <div className="flex items-center space-x-4">
           <button 

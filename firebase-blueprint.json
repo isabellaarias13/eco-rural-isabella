@@ -1,0 +1,161 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Usuarios del sistema Eco-Rural",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "documentId": { "type": "string" },
+        "veredaId": { "type": "string" },
+        "phone": { "type": "string" },
+        "role": { "type": "string", "enum": ["habitante", "conductor", "coordinador"] },
+        "avatarUrl": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "documentId", "phone", "role"]
+    },
+    "Truck": {
+      "title": "Truck",
+      "description": "Flota de camiones recolectores",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "number": { "type": "string" },
+        "plate": { "type": "string" },
+        "model": { "type": "string" },
+        "year": { "type": "number" },
+        "capacityTons": { "type": "number" },
+        "currentLoadTons": { "type": "number" },
+        "driverName": { "type": "string" },
+        "driverPhone": { "type": "string" },
+        "status": { "type": "string", "enum": ["disponible", "en_servicio", "mantenimiento"] },
+        "lastMaintenance": { "type": "string" },
+        "mileage": { "type": "number" },
+        "fuelLevel": { "type": "number" },
+        "currentVereda": { "type": "string" },
+        "serviceZone": { "type": "string" }
+      },
+      "required": ["id", "number", "plate", "model", "capacityTons", "status"]
+    },
+    "RuralRoute": {
+      "title": "RuralRoute",
+      "description": "Rutas de recolección veredal",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "veredaId": { "type": "string" },
+        "veredaName": { "type": "string" },
+        "scheduledDate": { "type": "string" },
+        "startTime": { "type": "string" },
+        "estimatedEndTime": { "type": "string" },
+        "truckId": { "type": "string" },
+        "truckNumber": { "type": "string" },
+        "truckPlate": { "type": "string" },
+        "driverName": { "type": "string" },
+        "driverPhone": { "type": "string" },
+        "status": { "type": "string", "enum": ["programada", "en_progreso", "completada", "cancelada"] },
+        "estimatedTons": { "type": "number" },
+        "collectedTons": { "type": "number" },
+        "recycledTons": { "type": "number" },
+        "efficiency": { "type": "number" },
+        "wasteType": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "code", "veredaName", "scheduledDate", "startTime", "truckNumber", "driverName", "status"]
+    },
+    "CollectionRecord": {
+      "title": "CollectionRecord",
+      "description": "Registros de pesaje de recolección",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "routeId": { "type": "string" },
+        "veredaName": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "truckNumber": { "type": "string" },
+        "truckPlate": { "type": "string" },
+        "driverName": { "type": "string" },
+        "totalTons": { "type": "number" },
+        "recycledTons": { "type": "number" },
+        "organicTons": { "type": "number" },
+        "plasticTons": { "type": "number" },
+        "glassTons": { "type": "number" },
+        "cardboardTons": { "type": "number" },
+        "metalTons": { "type": "number" },
+        "ordinaryTons": { "type": "number" },
+        "efficiency": { "type": "number" },
+        "status": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "code", "veredaName", "date", "time", "truckNumber", "driverName", "totalTons"]
+    },
+    "IncidentAlert": {
+      "title": "IncidentAlert",
+      "description": "Alertas comunitarias e incidentes ambientales",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["quema_basura", "via_bloqueada", "basurero_ilegal", "olor_fuerte", "animales_riesgo", "camion_varado", "otro"] },
+        "veredaName": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "reportedBy": { "type": "string" },
+        "reporterPhone": { "type": "string" },
+        "status": { "type": "string", "enum": ["critica", "atendida", "en_revision"] },
+        "severity": { "type": "string", "enum": ["alta", "media", "baja"] },
+        "description": { "type": "string" },
+        "preventedBurning": { "type": "boolean" },
+        "actionTaken": { "type": "string" }
+      },
+      "required": ["id", "title", "type", "veredaName", "date", "reportedBy", "status", "severity", "description"]
+    },
+    "AppNotification": {
+      "title": "AppNotification",
+      "description": "Notificaciones del sistema",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "type": { "type": "string", "enum": ["alerta", "ruta", "camion", "comunidad", "exito"] },
+        "read": { "type": "boolean" },
+        "vereda": { "type": "string" },
+        "linkTab": { "type": "string" }
+      },
+      "required": ["id", "title", "message", "timestamp", "type", "read"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Documentos de perfil de usuario"
+    },
+    "/trucks/{truckId}": {
+      "schema": "Truck",
+      "description": "Documentos de camiones de la flota"
+    },
+    "/routes/{routeId}": {
+      "schema": "RuralRoute",
+      "description": "Rutas rurales programadas y ejecutadas"
+    },
+    "/collections/{collectionId}": {
+      "schema": "CollectionRecord",
+      "description": "Registros de pesaje de recolección"
+    },
+    "/alerts/{alertId}": {
+      "schema": "IncidentAlert",
+      "description": "Alertas comunitarias de quemas y puntos críticos"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "AppNotification",
+      "description": "Notificaciones en tiempo real"
+    }
+  }
+}

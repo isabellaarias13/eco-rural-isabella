@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function for user authentication check
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Colección de pruebas para validar conectividad
+    match /test/{testId} {
+      allow read, write: if true;
+    }
+
+    // Reglas para usuarios
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Reglas para camiones
+    match /trucks/{truckId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Reglas para rutas
+    match /routes/{routeId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Reglas para recolecciones y pesajes
+    match /collections/{collectionId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Reglas para alertas comunitarias
+    match /alerts/{alertId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Reglas para notificaciones
+    match /notifications/{notificationId} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}
