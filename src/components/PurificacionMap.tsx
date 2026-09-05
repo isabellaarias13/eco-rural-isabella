@@ -16,18 +16,18 @@ import { PURIFICACION_VEREDAS, PURIFICACION_TOWN_CENTER } from '../models/vereda
 import { CollectionRoute, Truck, CommunityAlert } from '../types';
 
 interface PurificacionMapProps {
-  activeRoutes: CollectionRoute[];
-  trucks: Truck[];
-  alerts: CommunityAlert[];
+  activeRoutes?: CollectionRoute[];
+  trucks?: Truck[];
+  alerts?: CommunityAlert[];
   onSelectVereda?: (veredaName: string) => void;
   selectedVereda?: string | null;
   compact?: boolean;
 }
 
 export const PurificacionMap: React.FC<PurificacionMapProps> = ({
-  activeRoutes,
-  trucks,
-  alerts,
+  activeRoutes = [],
+  trucks = [],
+  alerts = [],
   onSelectVereda,
   selectedVereda,
   compact = false
@@ -44,13 +44,17 @@ export const PurificacionMap: React.FC<PurificacionMapProps> = ({
     return () => clearInterval(timer);
   }, []);
 
+  const safeTrucks = Array.isArray(trucks) ? trucks : [];
+  const safeRoutes = Array.isArray(activeRoutes) ? activeRoutes : [];
+  const safeAlerts = Array.isArray(alerts) ? alerts : [];
+
   // Filter trucks currently active or with active routes
-  const activeTrucksList = trucks.filter(t => t.status === 'en_ruta' || t.status === 'disponible');
-  const focusedTruck = activeTrucksList[selectedTruckIndex] || activeTrucksList[0] || trucks[0];
+  const activeTrucksList = safeTrucks.filter(t => t.status === 'en_servicio' || t.status === 'disponible');
+  const focusedTruck = activeTrucksList[selectedTruckIndex] || activeTrucksList[0] || safeTrucks[0];
 
   // Match corresponding route for focused truck
-  const focusedRoute = activeRoutes.find(r => r.truckId === focusedTruck?.id) || activeRoutes[0];
-  const targetVereda = PURIFICACION_VEREDAS.find(v => v.name === (focusedRoute?.veredaName || focusedTruck?.currentVereda)) || PURIFICACION_VEREDAS[0];
+  const focusedRoute = safeRoutes.find(r => r.truckId === focusedTruck?.id) || safeRoutes[0];
+  const targetVereda = PURIFICACION_VEREDAS.find(v => v.name === (focusedRoute?.veredaName || focusedTruck?.currentVereda || focusedTruck?.serviceZone)) || PURIFICACION_VEREDAS[0];
 
   // Coordinates for primary truck animation
   const startX = PURIFICACION_TOWN_CENTER.x;
@@ -64,9 +68,9 @@ export const PurificacionMap: React.FC<PurificacionMapProps> = ({
   const truckY = startY + (endY - startY) * progressRatio;
 
   // Second truck animation (offset cycle)
-  const truck2 = activeTrucksList[1] || trucks[1];
-  const route2 = activeRoutes.find(r => r.truckId === truck2?.id) || activeRoutes[1];
-  const vereda2 = PURIFICACION_VEREDAS.find(v => v.name === (route2?.veredaName || truck2?.currentVereda)) || PURIFICACION_VEREDAS[4];
+  const truck2 = activeTrucksList[1] || safeTrucks[1];
+  const route2 = safeRoutes.find(r => r.truckId === truck2?.id) || safeRoutes[1];
+  const vereda2 = PURIFICACION_VEREDAS.find(v => v.name === (route2?.veredaName || truck2?.currentVereda || truck2?.serviceZone)) || PURIFICACION_VEREDAS[4];
   const progress2 = (Math.cos((truckStep / 100) * Math.PI * 2) + 1) / 2;
   const truck2X = startX + ((vereda2?.mapCoords.x || 300) - startX) * progress2;
   const truck2Y = startY + ((vereda2?.mapCoords.y || 260) - startY) * progress2;
@@ -110,7 +114,7 @@ export const PurificacionMap: React.FC<PurificacionMapProps> = ({
               }`}
             >
               <TruckIcon className="w-3.5 h-3.5" />
-              <span>{truck.truckNumber}</span>
+              <span>{truck.number}</span>
             </button>
           ))}
         </div>
@@ -180,8 +184,8 @@ export const PurificacionMap: React.FC<PurificacionMapProps> = ({
           {/* Vereda Nodes */}
           {PURIFICACION_VEREDAS.map(vereda => {
             const isSelected = selectedVereda === vereda.name || hoveredVereda === vereda.name;
-            const hasRoute = activeRoutes.some(r => r.veredaName === vereda.name);
-            const hasAlert = alerts.some(a => a.veredaName === vereda.name && a.status !== 'atendida');
+            const hasRoute = safeRoutes.some(r => r.veredaName === vereda.name);
+            const hasAlert = safeAlerts.some(a => a.veredaName === vereda.name && a.status !== 'atendida');
 
             return (
               <g
@@ -247,7 +251,7 @@ export const PurificacionMap: React.FC<PurificacionMapProps> = ({
             {/* Truck Tag & Speed */}
             <rect x="-32" y="-23" width="64" height="13" rx="3" fill="#1e293b" opacity="0.9" />
             <text x="0" y="-14" fill="#fef08a" fontSize="8" fontWeight="bold" textAnchor="middle">
-              {focusedTruck?.truckNumber || 'Camión 01'} (En vivo)
+              {focusedTruck?.number || focusedTruck?.model || 'Camión 01'} (En vivo)
             </text>
           </g>
 
@@ -261,7 +265,7 @@ export const PurificacionMap: React.FC<PurificacionMapProps> = ({
               <circle cx="5" cy="8" r="2.5" fill="#0f172a" stroke="#ffffff" strokeWidth="0.6" />
               <rect x="-28" y="-21" width="56" height="12" rx="3" fill="#0f172a" opacity="0.9" />
               <text x="0" y="-12" fill="#7dd3fc" fontSize="7.5" fontWeight="bold" textAnchor="middle">
-                {truck2.truckNumber}
+                {truck2?.number || truck2?.plate || 'Camión 02'}
               </text>
             </g>
           )}
@@ -293,7 +297,7 @@ export const PurificacionMap: React.FC<PurificacionMapProps> = ({
             <div className="flex items-center justify-between text-xs mb-1.5">
               <div className="flex items-center space-x-1.5 font-bold text-amber-300">
                 <TruckIcon className="w-4 h-4 text-amber-400 animate-bounce" />
-                <span>{focusedTruck?.name || 'Camión Compactador 01'}</span>
+                <span>{focusedTruck?.model || focusedTruck?.number || 'Camión Compactador 01'}</span>
               </div>
               <span className="text-[10px] bg-amber-400 text-emerald-950 font-black px-1.5 py-0.2 rounded-full uppercase">
                 En Ruta
@@ -330,8 +334,8 @@ export const PurificacionMap: React.FC<PurificacionMapProps> = ({
             </div>
 
             <div className="mt-1.5 pt-1.5 border-t border-emerald-800/80 flex items-center justify-between text-[10px] text-emerald-300">
-              <span>Conductor: <strong>{focusedTruck?.driver || 'Hernán Gómez'}</strong></span>
-              <span>Carga: <strong>{focusedTruck?.capacityPercentage || 65}%</strong></span>
+              <span>Conductor: <strong>{focusedTruck?.driverName || 'Hernán Gómez'}</strong></span>
+              <span>Carga: <strong>{focusedTruck?.capacityTons ? Math.round(((focusedTruck.currentLoadTons || 0) / focusedTruck.capacityTons) * 100) : 65}%</strong></span>
             </div>
           </div>
 

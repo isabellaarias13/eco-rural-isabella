@@ -19,21 +19,23 @@ import {
   Sparkles
 } from 'lucide-react';
 import { PurificacionMap } from '../components/PurificacionMap';
-import { RuralRoute, CollectionRecord, Truck } from '../types';
+import { RuralRoute, CollectionRecord, Truck, CommunityAlert } from '../types';
 import { CollectionController } from '../controllers/collectionController';
 
 interface RecoleccionesViewProps {
   routes: RuralRoute[];
   collections: CollectionRecord[];
   trucks: Truck[];
+  alerts?: CommunityAlert[];
   onOpenNewRoute: () => void;
   onOpenNewCollection: () => void;
 }
 
 export const RecoleccionesView: React.FC<RecoleccionesViewProps> = ({
-  routes,
-  collections,
-  trucks,
+  routes = [],
+  collections = [],
+  trucks = [],
+  alerts = [],
   onOpenNewRoute,
   onOpenNewCollection
 }) => {
@@ -41,24 +43,34 @@ export const RecoleccionesView: React.FC<RecoleccionesViewProps> = ({
   const [statusFilter, setStatusFilter] = useState('todos');
   const [selectedCollection, setSelectedCollection] = useState<CollectionRecord | null>(null);
 
-  // Derived Metrics
-  const activeRoutesCount = routes.filter(r => r.status === 'en_progreso').length;
-  const totalTonsCollected = Number(collections.reduce((sum, c) => sum + c.totalTons, 0).toFixed(1));
-  const totalRecycledTons = Number(collections.reduce((sum, c) => sum + c.recycledTons, 0).toFixed(1));
-  const upcomingRoutes = routes.filter(r => r.status === 'programada' || r.status === 'en_progreso');
+  // Derived Metrics with defensive fallbacks
+  const safeRoutes = Array.isArray(routes) ? routes : [];
+  const safeCollections = Array.isArray(collections) ? collections : [];
+  const safeTrucks = Array.isArray(trucks) ? trucks : [];
+  const safeAlerts = Array.isArray(alerts) ? alerts : [];
+
+  const activeRoutesCount = safeRoutes.filter(r => r.status === 'en_progreso').length;
+  const totalTonsCollected = Number(safeCollections.reduce((sum, c) => sum + (c.totalTons || 0), 0).toFixed(1));
+  const totalRecycledTons = Number(safeCollections.reduce((sum, c) => sum + (c.recycledTons || 0), 0).toFixed(1));
+  const upcomingRoutes = safeRoutes.filter(r => r.status === 'programada' || r.status === 'en_progreso');
 
   // Filtered collections list
-  const filteredCollections = collections.filter(c => {
-    const matchSearch = c.veredaName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        c.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        c.driverName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        c.truckPlate.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredCollections = safeCollections.filter(c => {
+    const vName = c.veredaName || '';
+    const code = c.code || '';
+    const driver = c.driverName || '';
+    const plate = c.truckPlate || '';
+    const search = searchTerm.toLowerCase();
+    const matchSearch = vName.toLowerCase().includes(search) ||
+                        code.toLowerCase().includes(search) ||
+                        driver.toLowerCase().includes(search) ||
+                        plate.toLowerCase().includes(search);
     const matchStatus = statusFilter === 'todos' ? true : c.status === statusFilter;
     return matchSearch && matchStatus;
   });
 
   // Active truck telemetry summary
-  const activeTruck = trucks.find(t => t.status === 'en_servicio') || trucks[0];
+  const activeTruck = safeTrucks.find(t => t.status === 'en_servicio') || safeTrucks[0];
 
   return (
     <div id="recolecciones-view" className="space-y-6 animate-in fade-in duration-300">
@@ -149,8 +161,9 @@ export const RecoleccionesView: React.FC<RecoleccionesViewProps> = ({
             <span className="text-xs text-emerald-700 font-bold">Tolima &middot; Cobertura Veredal</span>
           </div>
           <PurificacionMap
-            activeRoutes={routes.filter(r => r.status === 'en_progreso')}
-            trucks={trucks}
+            activeRoutes={safeRoutes.filter(r => r.status === 'en_progreso')}
+            trucks={safeTrucks}
+            alerts={safeAlerts}
             compact={true}
           />
         </div>
@@ -218,7 +231,7 @@ export const RecoleccionesView: React.FC<RecoleccionesViewProps> = ({
                 <p className="text-gray-500">Sector actual:</p>
                 <p className="font-bold text-gray-900 flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Vereda {activeTruck.currentVereda || 'Base Municipal'}</span>
+                  <span>Vereda {activeTruck.currentVereda || activeTruck.serviceZone || 'Base Municipal'}</span>
                 </p>
               </div>
             </div>

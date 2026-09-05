@@ -16,6 +16,7 @@ import { NewCollectionModal } from './components/NewCollectionModal';
 import { ReportIncidentModal } from './components/ReportIncidentModal';
 import { RuralRecyclingGuideModal } from './components/RuralRecyclingGuideModal';
 import { NotificationsModal } from './components/NotificationsModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   const [state, setState] = useState(modelStore.getState());
@@ -62,55 +63,58 @@ export default function App() {
 
       {/* Main View Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {activeTab === 'dashboard' && (
-          <DashboardView
-            routes={state.routes}
-            collections={state.collections}
-            trucks={state.trucks}
-            alerts={state.alerts}
-            notifications={state.notifications}
-            monthlyStats={state.monthlyStats}
-            materials={state.materials}
-            onNavigateTab={tab => setActiveTab(tab)}
-            onOpenNewRoute={() => setIsRouteModalOpen(true)}
-            onOpenReportModal={() => setIsReportModalOpen(true)}
-            onOpenNotifications={() => setIsNotificationsOpen(true)}
-          />
-        )}
+        <ErrorBoundary key={activeTab}>
+          {activeTab === 'dashboard' && (
+            <DashboardView
+              routes={state.routes}
+              collections={state.collections}
+              trucks={state.trucks}
+              alerts={state.alerts}
+              notifications={state.notifications}
+              monthlyStats={state.monthlyStats}
+              materials={state.materials}
+              onNavigateTab={tab => setActiveTab(tab)}
+              onOpenNewRoute={() => setIsRouteModalOpen(true)}
+              onOpenReportModal={() => setIsReportModalOpen(true)}
+              onOpenNotifications={() => setIsNotificationsOpen(true)}
+            />
+          )}
 
-        {activeTab === 'recolecciones' && (
-          <RecoleccionesView
-            routes={state.routes}
-            collections={state.collections}
-            trucks={state.trucks}
-            onOpenNewRoute={() => setIsRouteModalOpen(true)}
-            onOpenNewCollection={() => setIsCollectionModalOpen(true)}
-          />
-        )}
+          {activeTab === 'recolecciones' && (
+            <RecoleccionesView
+              routes={state.routes}
+              collections={state.collections}
+              trucks={state.trucks}
+              alerts={state.alerts}
+              onOpenNewRoute={() => setIsRouteModalOpen(true)}
+              onOpenNewCollection={() => setIsCollectionModalOpen(true)}
+            />
+          )}
 
-        {activeTab === 'rutas' && (
-          <RutasView
-            routes={state.routes}
-            trucks={state.trucks}
-            alerts={state.alerts}
-            onOpenNewRoute={() => setIsRouteModalOpen(true)}
-            onOpenReportModal={() => setIsReportModalOpen(true)}
-          />
-        )}
+          {activeTab === 'rutas' && (
+            <RutasView
+              routes={state.routes}
+              trucks={state.trucks}
+              alerts={state.alerts}
+              onOpenNewRoute={() => setIsRouteModalOpen(true)}
+              onOpenReportModal={() => setIsReportModalOpen(true)}
+            />
+          )}
 
-        {activeTab === 'camiones' && (
-          <CamionesView
-            trucks={state.trucks}
-            onOpenNewTruck={() => setIsTruckModalOpen(true)}
-          />
-        )}
+          {activeTab === 'camiones' && (
+            <CamionesView
+              trucks={state.trucks}
+              onOpenNewTruck={() => setIsTruckModalOpen(true)}
+            />
+          )}
 
-        {activeTab === 'reportes' && (
-          <ReportesView
-            monthlyStats={state.monthlyStats}
-            materials={state.materials}
-          />
-        )}
+          {activeTab === 'reportes' && (
+            <ReportesView
+              monthlyStats={state.monthlyStats}
+              materials={state.materials}
+            />
+          )}
+        </ErrorBoundary>
       </main>
 
       {/* Footer */}
