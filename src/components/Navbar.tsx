@@ -24,6 +24,7 @@ interface NavbarProps {
   onLogout: () => void;
   onOpenReportIncident: () => void;
   onOpenGuide: () => void;
+  onOpenNotifications: () => void;
   notificationsCount: number;
 }
 
@@ -34,6 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogout,
   onOpenReportIncident,
   onOpenGuide,
+  onOpenNotifications,
   notificationsCount
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -137,9 +139,10 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Notifications Bell */}
             <button
-              onClick={() => onSelectTab('dashboard')}
+              id="nav-bell-desktop"
+              onClick={onOpenNotifications}
               className="relative p-2 text-emerald-200 hover:text-white hover:bg-emerald-800 rounded-xl transition-colors cursor-pointer"
-              title={`${notificationsCount} notificaciones`}
+              title={`${notificationsCount} notificaciones y usuarios`}
             >
               <Bell className="w-5 h-5" />
               {notificationsCount > 0 && (
@@ -149,11 +152,11 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Current User Info */}
             <div className="flex items-center space-x-2 pl-2 border-l border-emerald-800">
-              <div className="w-8 h-8 rounded-full bg-emerald-700 text-amber-300 flex items-center justify-center font-bold text-xs border border-emerald-600">
+              <div className="w-8 h-8 rounded-full bg-emerald-700 text-amber-300 flex items-center justify-center font-bold text-xs border border-emerald-600 shrink-0">
                 {currentUser.name.charAt(0)}
               </div>
               <div className="text-left hidden md:block">
-                <div className="text-xs font-bold text-white truncate max-w-[120px]">
+                <div className="text-xs font-bold text-white truncate max-w-[130px]" title={currentUser.name}>
                   {currentUser.name}
                 </div>
                 <div className="text-[10px] text-emerald-300 capitalize font-medium">
@@ -172,8 +175,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Mobile Menu Toggle */}
-          <div className="lg:hidden flex items-center space-x-2">
+          {/* Mobile Right Action Buttons (Notifications + Hamburger) */}
+          <div className="lg:hidden flex items-center space-x-1.5">
+            <button
+              id="nav-bell-mobile"
+              onClick={onOpenNotifications}
+              className="p-2 text-emerald-200 hover:text-white hover:bg-emerald-800 rounded-xl transition-colors cursor-pointer relative"
+              title="Ver notificaciones y usuarios"
+            >
+              <Bell className="w-5 h-5" />
+              {notificationsCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-amber-400 rounded-full animate-ping"></span>
+              )}
+            </button>
+
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="p-2 rounded-xl text-emerald-200 hover:text-white hover:bg-emerald-800 focus:outline-none cursor-pointer"
@@ -207,16 +222,36 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               );
             })}
+
+            {/* Mobile Notifications button in menu */}
+            <button
+              id="mobile-menu-notifications-btn"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                onOpenNotifications();
+              }}
+              className="w-full px-3 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between text-amber-200 bg-emerald-900/60 hover:bg-emerald-900 border border-emerald-700/50"
+            >
+              <div className="flex items-center space-x-2.5">
+                <Bell className="w-4 h-4 text-amber-300" />
+                <span>Notificaciones & Censo de Usuarios</span>
+              </div>
+              {notificationsCount > 0 && (
+                <span className="bg-amber-400 text-emerald-950 text-[10px] font-black px-2 py-0.5 rounded-full">
+                  {notificationsCount}
+                </span>
+              )}
+            </button>
           </div>
 
           <div className="pt-2 border-t border-emerald-800 flex justify-between items-center text-xs">
             <div className="flex items-center space-x-2">
               <UserIcon className="w-4 h-4 text-amber-300" />
-              <span className="font-bold">{currentUser.name}</span>
+              <span className="font-bold truncate max-w-[160px]">{currentUser.name}</span>
             </div>
             <button
               onClick={onLogout}
-              className="text-red-300 font-bold hover:underline flex items-center gap-1"
+              className="text-red-300 font-bold hover:underline flex items-center gap-1 cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Salir</span>

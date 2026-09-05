@@ -96,7 +96,8 @@ class EcoRuralModelStore {
 
   private init() {
     this.users = loadFromStorage<User[]>(STORAGE_KEYS.USERS, INITIAL_USERS);
-    this.currentUser = loadFromStorage<User | null>(STORAGE_KEYS.CURRENT_USER, this.users[0] || null);
+    // User must log in explicitly; do not auto-login as initial demo user
+    this.currentUser = loadFromStorage<User | null>(STORAGE_KEYS.CURRENT_USER, null);
     this.trucks = loadFromStorage<Truck[]>(STORAGE_KEYS.TRUCKS, INITIAL_TRUCKS);
     this.routes = loadFromStorage<RuralRoute[]>(STORAGE_KEYS.ROUTES, INITIAL_ROUTES);
     this.collections = loadFromStorage<CollectionRecord[]>(STORAGE_KEYS.COLLECTIONS, INITIAL_COLLECTIONS);
@@ -118,9 +119,16 @@ class EcoRuralModelStore {
           this.isSyncingFromFirebase = true;
           this.users = remoteUsers;
           saveToStorage(STORAGE_KEYS.USERS, this.users);
-          if (!this.currentUser || !this.users.some(u => u.id === this.currentUser?.id)) {
-            this.currentUser = this.users[0] || null;
-            saveToStorage(STORAGE_KEYS.CURRENT_USER, this.currentUser);
+          
+          // Only update currentUser if one was already explicitly logged in; DO NOT override with users[0]
+          if (this.currentUser) {
+            const updatedCurrent = this.users.find(
+              u => u.id === this.currentUser?.id || u.documentId === this.currentUser?.documentId
+            );
+            if (updatedCurrent) {
+              this.currentUser = updatedCurrent;
+              saveToStorage(STORAGE_KEYS.CURRENT_USER, this.currentUser);
+            }
           }
           this.isSyncingFromFirebase = false;
           this.notify();
@@ -622,10 +630,69 @@ class EcoRuralModelStore {
   }
 
   public addUser(user: User): void {
-    this.users = [...this.users, user];
+    this.users = [...this.users.filter(u => u.id !== user.id), user];
     saveToStorage(STORAGE_KEYS.USERS, this.users);
+    this.setCurrentUser(user);
     setDoc(doc(db, 'users', user.id), user).catch(err => console.warn('Firestore write user:', err));
+
+    // Register a system notification so the new user appears in notifications
+    this.addNotification({
+      id: `notif-user-${Date.now()}`,
+      title: 'Nuevo Usuario Registrado',
+      message: `${user.name} (${user.role.toUpperCase()}) se ha registrado en el sistema rural para la vereda ${user.vereda}.`,
+      timestamp: 'Ahora mismo',
+      type: 'comunidad',
+      read: false,
+      vereda: user.vereda
+    });
+
     this.notify();
+  }
+
+  public updateUserPassword(documentIdOrEmailOrPhone: string, newPassword: string): { success: boolean; message: string; user?: User } {
+    const clean = documentIdOrEmailOrPhone.trim().toLowerCase();
+    const cleanNumbers = clean.replace(/\D/g, '');
+
+    const userIndex = this.users.findIndex(u => {
+      const uDocNumbers = u.documentId.replace(/\D/g, '');
+      const uPhoneNumbers = u.phone.replace(/\D/g, '');
+      const uEmail = (u.email || '').toLowerCase();
+
+      return (
+        (cleanNumbers.length > 3 && (uDocNumbers === cleanNumbers || uPhoneNumbers === cleanNumbers)) ||
+        (clean.length > 3 && uEmail === clean)
+      );
+    });
+
+    if (userIndex === -1) {
+      return { success: false, message: 'No se encontró ningún usuario con ese número de documento, correo o teléfono.' };
+    }
+
+    const updatedUser: User = {
+      ...this.users[userIndex],
+      password: newPassword
+    };
+
+    this.users[userIndex] = updatedUser;
+    saveToStorage(STORAGE_KEYS.USERS, this.users);
+    setDoc(doc(db, 'users', updatedUser.id), updatedUser).catch(err => console.warn('Firestore update pass:', err));
+
+    if (this.currentUser?.id === updatedUser.id) {
+      this.currentUser = updatedUser;
+      saveToStorage(STORAGE_KEYS.CURRENT_USER, this.currentUser);
+    }
+
+    this.addNotification({
+      id: `notif-pass-${Date.now()}`,
+      title: 'Contraseña Actualizada',
+      message: `Se ha restablecido exitosamente la contraseña para el usuario ${updatedUser.name}.`,
+      timestamp: 'Ahora mismo',
+      type: 'exito',
+      read: false
+    });
+
+    this.notify();
+    return { success: true, message: 'Contraseña actualizada con éxito.', user: updatedUser };
   }
 
   // Reset to initial demo data

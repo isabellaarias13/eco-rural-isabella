@@ -1,5 +1,21 @@
 import React, { useState } from 'react';
-import { Leaf, Lock, Mail, User as UserIcon, MapPin, Phone, ShieldCheck, ArrowRight, Sparkles, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { 
+  Leaf, 
+  Lock, 
+  Mail, 
+  User as UserIcon, 
+  MapPin, 
+  Phone, 
+  ShieldCheck, 
+  ArrowRight, 
+  CheckCircle2, 
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  KeyRound,
+  ArrowLeft,
+  HelpCircle
+} from 'lucide-react';
 import { PURIFICACION_VEREDAS } from '../models/veredasData';
 import { UserRole } from '../types';
 import { AuthController } from '../controllers/authController';
@@ -9,44 +25,151 @@ interface AuthViewProps {
 }
 
 export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
-  const [isRegister, setIsRegister] = useState(false);
-  const [emailOrDoc, setEmailOrDoc] = useState('coordinador@ecorural-purificacion.gov.co');
-  const [password, setPassword] = useState('123456');
+  // Navigation state: 'login' | 'register' | 'recover'
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'recover'>('login');
 
-  // Register Fields
+  // Login inputs - ALWAYS blank on first load as requested
+  const [emailOrDoc, setEmailOrDoc] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Register inputs - Blank inputs for clean fill
   const [regName, setRegName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
+  const [regEmail, setRegEmail] = useState(''); // OPTIONAL
   const [regDoc, setRegDoc] = useState('');
   const [regVereda, setRegVereda] = useState(PURIFICACION_VEREDAS[0].name);
   const [regPhone, setRegPhone] = useState('');
   const [regRole, setRegRole] = useState<UserRole>('habitante');
+  const [regPassword, setRegPassword] = useState(''); // Mandatory, max 10 chars, no spaces
+  const [showRegPassword, setShowRegPassword] = useState(false);
+
+  // Recover Password inputs
+  const [recoverDocOrEmail, setRecoverDocOrEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [recoverSuccessMsg, setRecoverSuccessMsg] = useState('');
+
+  // Status & error messages
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Handle password input change restricting to max 10 characters and NO spaces
+  const handlePasswordNoSpaces = (value: string, setter: (val: string) => void) => {
+    // Strip all spaces and restrict to maximum 10 characters
+    const sanitized = value.replace(/\s/g, '').slice(0, 10);
+    setter(sanitized);
+  };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg('');
+
     if (!emailOrDoc.trim()) {
-      setErrorMsg('Por favor ingresa tu correo, cédula o usuario.');
+      setErrorMsg('Por favor ingresa tu número de documento, usuario o correo.');
       return;
     }
-    AuthController.login(emailOrDoc, password);
+
+    const result = AuthController.login(emailOrDoc, password);
+    if (!result.success) {
+      setErrorMsg(result.message || 'Error al iniciar sesión.');
+      return;
+    }
+
     onSuccess();
   };
 
   const handleRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regName.trim() || !regEmail.trim() || !regDoc.trim() || !regPhone.trim()) {
-      setErrorMsg('Por favor completa todos los campos requeridos.');
+    setErrorMsg('');
+
+    const cleanName = regName.trim();
+    const cleanDoc = regDoc.trim();
+    const cleanPhone = regPhone.trim();
+    const cleanPass = regPassword.trim();
+
+    if (!cleanName) {
+      setErrorMsg('El nombre completo es obligatorio.');
       return;
     }
-    AuthController.register({
-      name: regName,
-      email: regEmail,
-      documentId: regDoc,
+
+    if (!cleanDoc) {
+      setErrorMsg('El número de documento / cédula es obligatorio.');
+      return;
+    }
+
+    if (!cleanPhone) {
+      setErrorMsg('El número de teléfono móvil es obligatorio.');
+      return;
+    }
+
+    if (!cleanPass) {
+      setErrorMsg('La contraseña es obligatoria (máximo 10 caracteres, sin espacios).');
+      return;
+    }
+
+    if (cleanPass.length > 10) {
+      setErrorMsg('La contraseña no puede superar 10 caracteres.');
+      return;
+    }
+
+    if (/\s/.test(regPassword)) {
+      setErrorMsg('La contraseña no puede contener espacios en blanco.');
+      return;
+    }
+
+    const result = AuthController.register({
+      name: cleanName, // EXACT name without alterations
+      email: regEmail.trim() ? regEmail.trim() : undefined, // Optional email
+      documentId: cleanDoc,
       vereda: regVereda,
-      phone: regPhone,
-      role: regRole
+      phone: cleanPhone,
+      role: regRole,
+      password: cleanPass
     });
+
+    if (!result.success) {
+      setErrorMsg(result.message || 'Error al registrar usuario.');
+      return;
+    }
+
     onSuccess();
+  };
+
+  const handleRecoverSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setRecoverSuccessMsg('');
+
+    if (!recoverDocOrEmail.trim()) {
+      setErrorMsg('Ingresa tu cédula, documento o correo registrado.');
+      return;
+    }
+
+    if (!newPassword) {
+      setErrorMsg('Ingresa la nueva contraseña (hasta 10 caracteres, sin espacios).');
+      return;
+    }
+
+    if (newPassword.length > 10) {
+      setErrorMsg('La contraseña no puede superar 10 caracteres.');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setErrorMsg('Las contraseñas no coinciden. Por favor verifica.');
+      return;
+    }
+
+    const res = AuthController.recoverPassword(recoverDocOrEmail, newPassword);
+    if (!res.success) {
+      setErrorMsg(res.message);
+      return;
+    }
+
+    setRecoverSuccessMsg(`¡Contraseña restablecida con éxito para ${res.user?.name}! Ahora puedes iniciar sesión con tu nueva clave.`);
+    // Fill credentials in login for smooth transition
+    setEmailOrDoc(recoverDocOrEmail);
+    setPassword(newPassword);
   };
 
   const quickDemoLogin = (role: UserRole) => {
@@ -55,12 +178,12 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-teal-900 to-emerald-900 flex flex-col justify-center items-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-teal-950 to-emerald-900 flex flex-col justify-center items-center p-4 relative overflow-y-auto selection:bg-emerald-300 selection:text-emerald-950">
       {/* Background Decorative Rings */}
       <div className="absolute -top-24 -left-24 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-      <div className="w-full max-w-md my-auto relative z-10">
+      <div className="w-full max-w-md my-auto py-6 relative z-10">
         {/* Brand Header */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-emerald-400 via-teal-400 to-amber-300 shadow-xl shadow-emerald-950/50 mb-3 border-2 border-white/20">
@@ -68,7 +191,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
           </div>
           <h1 className="text-3xl font-black tracking-tight text-white flex items-center justify-center gap-2">
             <span>Eco-Rural</span>
-            <span className="bg-amber-400 text-emerald-950 text-xs px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+            <span className="bg-amber-400 text-emerald-950 text-xs px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">
               Tolima
             </span>
           </h1>
@@ -80,131 +203,193 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
           </p>
         </div>
 
-        {/* Auth Card */}
+        {/* Main Auth Card */}
         <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-white/30 overflow-hidden">
-          {/* Tab switcher: Login / Register */}
-          <div className="flex border-b border-gray-200">
-            <button
-              id="tab-login-btn"
-              onClick={() => { setIsRegister(false); setErrorMsg(''); }}
-              className={`flex-1 py-3.5 text-xs font-bold text-center cursor-pointer transition-colors ${
-                !isRegister
-                  ? 'text-emerald-800 border-b-2 border-emerald-600 bg-emerald-50/50'
-                  : 'text-gray-500 hover:text-gray-700 bg-gray-50'
-              }`}
-            >
-              Iniciar Sesión
-            </button>
-            <button
-              id="tab-register-btn"
-              onClick={() => { setIsRegister(true); setErrorMsg(''); }}
-              className={`flex-1 py-3.5 text-xs font-bold text-center cursor-pointer transition-colors ${
-                isRegister
-                  ? 'text-emerald-800 border-b-2 border-emerald-600 bg-emerald-50/50'
-                  : 'text-gray-500 hover:text-gray-700 bg-gray-50'
-              }`}
-            >
-              Crear Cuenta
-            </button>
-          </div>
+          {/* Top Tabs (Login / Register / Recover) */}
+          {authMode !== 'recover' ? (
+            <div className="flex border-b border-gray-200">
+              <button
+                id="tab-login-btn"
+                type="button"
+                onClick={() => { setAuthMode('login'); setErrorMsg(''); }}
+                className={`flex-1 py-3.5 text-xs font-bold text-center cursor-pointer transition-colors ${
+                  authMode === 'login'
+                    ? 'text-emerald-900 border-b-2 border-emerald-600 bg-emerald-50/60 font-black'
+                    : 'text-gray-500 hover:text-gray-700 bg-gray-50'
+                }`}
+              >
+                Iniciar Sesión
+              </button>
+              <button
+                id="tab-register-btn"
+                type="button"
+                onClick={() => { setAuthMode('register'); setErrorMsg(''); }}
+                className={`flex-1 py-3.5 text-xs font-bold text-center cursor-pointer transition-colors ${
+                  authMode === 'register'
+                    ? 'text-emerald-900 border-b-2 border-emerald-600 bg-emerald-50/60 font-black'
+                    : 'text-gray-500 hover:text-gray-700 bg-gray-50'
+                }`}
+              >
+                Crear Cuenta
+              </button>
+            </div>
+          ) : (
+            <div className="bg-emerald-900 text-white px-5 py-3.5 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <KeyRound className="w-4 h-4 text-amber-300" />
+                <span className="text-xs font-bold">Recuperación de Contraseña</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setAuthMode('login'); setErrorMsg(''); setRecoverSuccessMsg(''); }}
+                className="text-xs text-emerald-200 hover:text-white flex items-center gap-1 font-semibold cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Volver</span>
+              </button>
+            </div>
+          )}
 
           <div className="p-6">
+            {/* Error Banner */}
             {errorMsg && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium flex items-start gap-2 animate-in fade-in">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
                 <span>{errorMsg}</span>
               </div>
             )}
 
-            {!isRegister ? (
-              /* LOGIN FORM */
+            {/* Recovery Success Banner */}
+            {recoverSuccessMsg && (
+              <div className="mb-4 p-3.5 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-800 font-semibold flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 mt-0.5" />
+                <div>
+                  <p>{recoverSuccessMsg}</p>
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('login'); setErrorMsg(''); setRecoverSuccessMsg(''); }}
+                    className="mt-2 text-xs font-bold text-emerald-700 hover:text-emerald-900 underline block"
+                  >
+                    Hacer clic aquí para iniciar sesión ahora
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 1. LOGIN FORM */}
+            {authMode === 'login' && (
               <form onSubmit={handleLoginSubmit} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1 flex items-center gap-1">
                     <UserIcon className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Usuario / Correo / Cédula</span>
+                    <span>Cédula, Documento o Correo</span>
                   </label>
                   <input
                     id="input-login-usuario"
                     type="text"
                     value={emailOrDoc}
                     onChange={e => setEmailOrDoc(e.target.value)}
-                    placeholder="ej: coordinador@ecorural-purificacion.gov.co"
+                    placeholder="Escribe tu número de cédula o correo..."
                     required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs font-medium"
+                    autoComplete="username"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs font-medium bg-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1 flex items-center gap-1">
-                    <Lock className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Contraseña</span>
-                  </label>
-                  <input
-                    id="input-login-password"
-                    type="password"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs font-medium"
-                  />
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1">
+                      <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Contraseña</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => { setAuthMode('recover'); setErrorMsg(''); }}
+                      className="text-[11px] text-emerald-700 hover:text-emerald-900 font-bold hover:underline cursor-pointer"
+                    >
+                      ¿Olvidaste tu contraseña?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      id="input-login-password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={e => handlePasswordNoSpaces(e.target.value, setPassword)}
+                      maxLength={10}
+                      placeholder="Ingresa tu contraseña..."
+                      required
+                      autoComplete="current-password"
+                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-xs font-medium bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer p-1"
+                      title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <button
                   id="btn-submit-login"
                   type="submit"
-                  className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-98"
+                  className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-98 mt-2"
                 >
                   <span>Ingresar al Sistema Rural</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </form>
-            ) : (
-              /* REGISTER FORM */
+            )}
+
+            {/* 2. REGISTER FORM */}
+            {authMode === 'register' && (
               <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Nombre Completo
+                  <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center justify-between">
+                    <span>Nombre Completo *</span>
+                    <span className="text-[10px] text-emerald-700 font-semibold">Exactamente como aparecerá</span>
                   </label>
                   <input
                     id="input-reg-nombre"
                     type="text"
                     value={regName}
                     onChange={e => setRegName(e.target.value)}
-                    placeholder="Nombre y Apellidos"
+                    placeholder="Escribe tus nombres y apellidos..."
                     required
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-xs"
+                    className="w-full px-3 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-xs font-medium bg-white"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">
-                      Cédula / Documento
+                      Cédula / Documento *
                     </label>
                     <input
                       id="input-reg-cedula"
                       type="text"
                       value={regDoc}
                       onChange={e => setRegDoc(e.target.value)}
-                      placeholder="93.xxx.xxx"
+                      placeholder="Número de cédula..."
                       required
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-xs"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-xs font-medium bg-white"
                     />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">
-                      Teléfono Móvil
+                      Teléfono Móvil *
                     </label>
                     <input
                       id="input-reg-telefono"
-                      type="text"
+                      type="tel"
                       value={regPhone}
                       onChange={e => setRegPhone(e.target.value)}
                       placeholder="315 xxx xxxx"
                       required
-                      className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-xs"
+                      className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-xs font-medium bg-white"
                     />
                   </div>
                 </div>
@@ -226,19 +411,53 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                   </select>
                 </div>
 
+                {/* CORREO NO OBLIGATORIO (OPCIONAL) */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Correo Electrónico
+                  <label className="block text-xs font-bold text-gray-700 mb-1 flex items-center justify-between">
+                    <span>Correo Electrónico</span>
+                    <span className="text-[10px] text-gray-400 font-semibold">(Opcional)</span>
                   </label>
                   <input
                     id="input-reg-email"
                     type="email"
                     value={regEmail}
                     onChange={e => setRegEmail(e.target.value)}
-                    placeholder="tu.correo@ejemplo.com"
-                    required
-                    className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-xs"
+                    placeholder="Opcional (si tienes correo electrónico)"
+                    className="w-full px-3 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-xs font-medium bg-white"
                   />
+                </div>
+
+                {/* CONTRASEÑA OBLIGATORIA (HASTA 10 CARACTERES, SIN ESPACIOS, CON VER CONTRASEÑA) */}
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-xs font-bold text-gray-700 flex items-center gap-1">
+                      <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Contraseña Obligatoria *</span>
+                    </label>
+                    <span className="text-[10px] text-emerald-700 font-bold">
+                      Hasta 10 carácteres, sin espacios ({regPassword.length}/10)
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      id="input-reg-password"
+                      type={showRegPassword ? 'text' : 'password'}
+                      value={regPassword}
+                      onChange={e => handlePasswordNoSpaces(e.target.value, setRegPassword)}
+                      maxLength={10}
+                      placeholder="Crea tu contraseña (máx 10 letras/números)..."
+                      required
+                      className="w-full pl-3.5 pr-10 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-xs font-medium bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowRegPassword(!showRegPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer p-1"
+                      title={showRegPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                    >
+                      {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
@@ -260,10 +479,90 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                 <button
                   id="btn-submit-register"
                   type="submit"
-                  className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-lg transition-all flex items-center justify-center space-x-2 cursor-pointer mt-2"
+                  className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-lg transition-all flex items-center justify-center space-x-2 cursor-pointer mt-3"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Crear Cuenta y Activar Servicio</span>
+                </button>
+              </form>
+            )}
+
+            {/* 3. RECOVER PASSWORD FORM */}
+            {authMode === 'recover' && (
+              <form onSubmit={handleRecoverSubmit} className="space-y-4">
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 leading-relaxed">
+                  Ingresa tu número de cédula, teléfono o correo. Te permitiremos asignar una nueva contraseña segura al instante.
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Cédula, Teléfono o Correo Registrado *
+                  </label>
+                  <input
+                    id="input-recover-doc"
+                    type="text"
+                    value={recoverDocOrEmail}
+                    onChange={e => setRecoverDocOrEmail(e.target.value)}
+                    placeholder="ej: 93.382.410 o 312 458 9021"
+                    required
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-xs font-medium"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-xs font-bold text-gray-700">
+                      Nueva Contraseña *
+                    </label>
+                    <span className="text-[10px] text-emerald-700 font-bold">
+                      Hasta 10 carácteres, sin espacios ({newPassword.length}/10)
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      id="input-recover-newpassword"
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={e => handlePasswordNoSpaces(e.target.value, setNewPassword)}
+                      maxLength={10}
+                      placeholder="Nueva clave..."
+                      required
+                      className="w-full pl-3.5 pr-10 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-xs font-medium"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer p-1"
+                      title={showNewPassword ? 'Ocultar' : 'Ver contraseña'}
+                    >
+                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Confirmar Nueva Contraseña *
+                  </label>
+                  <input
+                    id="input-recover-confirm"
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={confirmNewPassword}
+                    onChange={e => handlePasswordNoSpaces(e.target.value, setConfirmNewPassword)}
+                    maxLength={10}
+                    placeholder="Repite la nueva clave..."
+                    required
+                    className="w-full px-3.5 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-xs font-medium"
+                  />
+                </div>
+
+                <button
+                  id="btn-submit-recover"
+                  type="submit"
+                  className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-lg transition-all flex items-center justify-center space-x-2 cursor-pointer mt-2"
+                >
+                  <KeyRound className="w-4 h-4" />
+                  <span>Restablecer y Guardar Contraseña</span>
                 </button>
               </form>
             )}
@@ -278,7 +577,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                   id="btn-demo-coordinador"
                   type="button"
                   onClick={() => quickDemoLogin('coordinador')}
-                  className="px-2 py-1.5 rounded-lg bg-emerald-100/70 hover:bg-emerald-200 text-emerald-950 text-[11px] font-bold transition-colors cursor-pointer border border-emerald-300 text-center"
+                  className="px-2 py-2 rounded-lg bg-emerald-100/70 hover:bg-emerald-200 text-emerald-950 text-[11px] font-bold transition-colors cursor-pointer border border-emerald-300 text-center"
                 >
                   Coordinador
                 </button>
@@ -286,7 +585,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                   id="btn-demo-conductor"
                   type="button"
                   onClick={() => quickDemoLogin('conductor')}
-                  className="px-2 py-1.5 rounded-lg bg-sky-100/70 hover:bg-sky-200 text-sky-950 text-[11px] font-bold transition-colors cursor-pointer border border-sky-300 text-center"
+                  className="px-2 py-2 rounded-lg bg-sky-100/70 hover:bg-sky-200 text-sky-950 text-[11px] font-bold transition-colors cursor-pointer border border-sky-300 text-center"
                 >
                   Conductor
                 </button>
@@ -294,7 +593,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                   id="btn-demo-habitante"
                   type="button"
                   onClick={() => quickDemoLogin('habitante')}
-                  className="px-2 py-1.5 rounded-lg bg-amber-100/70 hover:bg-amber-200 text-amber-950 text-[11px] font-bold transition-colors cursor-pointer border border-amber-300 text-center"
+                  className="px-2 py-2 rounded-lg bg-amber-100/70 hover:bg-amber-200 text-amber-950 text-[11px] font-bold transition-colors cursor-pointer border border-amber-300 text-center"
                 >
                   Habitante
                 </button>

@@ -18,6 +18,8 @@ export const INITIAL_USERS: User[] = [
     vereda: 'Cabecera Municipal',
     phone: '312 458 9021',
     role: 'coordinador',
+    password: '123456',
+    createdAt: '2026-01-15',
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
   },
   {
@@ -28,6 +30,8 @@ export const INITIAL_USERS: User[] = [
     vereda: 'Sabaneta',
     phone: '315 882 1044',
     role: 'conductor',
+    password: '123456',
+    createdAt: '2026-02-01',
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'
   },
   {
@@ -38,6 +42,8 @@ export const INITIAL_USERS: User[] = [
     vereda: 'Chenche Asoleado',
     phone: '320 671 4490',
     role: 'habitante',
+    password: '123456',
+    createdAt: '2026-02-20',
     avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80'
   }
 ];

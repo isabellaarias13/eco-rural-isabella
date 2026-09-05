@@ -136,13 +136,18 @@ export class ReportController {
       csvContent += row + '\n';
     });
 
-    const encodedUri = encodeURI(csvContent);
+    const encodedUri = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csvContent);
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.setAttribute('href', url);
     link.setAttribute('download', `EcoRural_Purificacion_Reporte_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 200);
   }
 
   public static exportToPDF(): void {
@@ -264,6 +269,115 @@ export class ReportController {
     doc.setTextColor(140, 140, 140);
     doc.text('Eco-Rural Purificación | Generado automáticamente desde el Sistema Central de Aseo Rural', 14, 280);
 
-    doc.save(`EcoRural_Purificacion_Reporte_${new Date().toISOString().split('T')[0]}.pdf`);
+    // Mobile & Desktop compatible save
+    const pdfBlob = doc.output('blob');
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    const downloadLink = document.createElement('a');
+    downloadLink.href = pdfUrl;
+    downloadLink.download = `EcoRural_Purificacion_Reporte_${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    setTimeout(() => {
+      document.body.removeChild(downloadLink);
+      URL.revokeObjectURL(pdfUrl);
+    }, 300);
+  }
+
+  // EXPORT USERS LIST TO CSV/EXCEL
+  public static exportUsersToCSV(users: any[]): void {
+    let csvContent = 'ECO-RURAL PURIFICACIÓN TOLIMA - LISTADO OFICIAL DE USUARIOS REGISTRADOS\n';
+    csvContent += `Fecha de Generación: ${new Date().toLocaleDateString('es-CO')} ${new Date().toLocaleTimeString('es-CO')}\n`;
+    csvContent += `Total Usuarios: ${users.length}\n\n`;
+    csvContent += 'Nombre Completo,Cédula / Documento,Rol en el Sistema,Vereda,Teléfono,Correo Electrónico,Fecha de Registro\n';
+
+    users.forEach(u => {
+      const row = [
+        `"${u.name.replace(/"/g, '""')}"`,
+        `"${u.documentId}"`,
+        `"${u.role.toUpperCase()}"`,
+        `"${u.vereda}"`,
+        `"${u.phone}"`,
+        `"${u.email || 'No registrado'}"`,
+        `"${u.createdAt || 'Pre-registrado'}"`
+      ].join(',');
+      csvContent += row + '\n';
+    });
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `EcoRural_Usuarios_Registrados_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 200);
+  }
+
+  // EXPORT USERS LIST TO PDF
+  public static exportUsersToPDF(users: any[]): void {
+    const doc = new jsPDF();
+
+    // Header
+    doc.setFillColor(22, 163, 74);
+    doc.rect(0, 0, 210, 26, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.text('Eco-Rural | Purificación Tolima', 14, 12);
+    doc.setFontSize(9.5);
+    doc.text('Listado Oficial de Usuarios y Habitantes Registrados', 14, 20);
+
+    doc.setTextColor(70, 70, 70);
+    doc.setFontSize(8.5);
+    doc.text(`Fecha: ${new Date().toLocaleDateString('es-CO')} ${new Date().toLocaleTimeString('es-CO')}`, 14, 34);
+    doc.text(`Total de Personas Registradas: ${users.length}`, 130, 34);
+
+    // Table Header
+    let y = 42;
+    doc.setFillColor(30, 41, 59);
+    doc.rect(14, y, 182, 7.5, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8.5);
+    doc.text('Nombre del Usuario', 18, y + 5);
+    doc.text('Documento', 75, y + 5);
+    doc.text('Rol', 105, y + 5);
+    doc.text('Vereda', 135, y + 5);
+    doc.text('Teléfono', 170, y + 5);
+
+    y += 7.5;
+    doc.setTextColor(50, 50, 50);
+    doc.setFontSize(8);
+
+    users.forEach((u, idx) => {
+      if (y > 270) {
+        doc.addPage();
+        y = 20;
+      }
+      if (idx % 2 === 1) {
+        doc.setFillColor(248, 250, 252);
+        doc.rect(14, y, 182, 6.5, 'F');
+      }
+      doc.text(u.name.substring(0, 28), 18, y + 4.5);
+      doc.text(u.documentId, 75, y + 4.5);
+      doc.text(u.role.toUpperCase(), 105, y + 4.5);
+      doc.text(u.vereda.substring(0, 18), 135, y + 4.5);
+      doc.text(u.phone, 170, y + 4.5);
+      y += 6.5;
+    });
+
+    // Save
+    const pdfBlob = doc.output('blob');
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    const link = document.createElement('a');
+    link.href = pdfUrl;
+    link.download = `EcoRural_Usuarios_Registrados_${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(pdfUrl);
+    }, 300);
   }
 }

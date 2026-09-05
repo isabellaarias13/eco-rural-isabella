@@ -15,6 +15,7 @@ import { NewTruckModal } from './components/NewTruckModal';
 import { NewCollectionModal } from './components/NewCollectionModal';
 import { ReportIncidentModal } from './components/ReportIncidentModal';
 import { RuralRecyclingGuideModal } from './components/RuralRecyclingGuideModal';
+import { NotificationsModal } from './components/NotificationsModal';
 
 export default function App() {
   const [state, setState] = useState(modelStore.getState());
@@ -26,6 +27,7 @@ export default function App() {
   const [isCollectionModalOpen, setIsCollectionModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   // Subscribe to Model Store changes (MVC Observer Pattern)
   useEffect(() => {
@@ -54,6 +56,7 @@ export default function App() {
         onLogout={handleLogout}
         onOpenReportIncident={() => setIsReportModalOpen(true)}
         onOpenGuide={() => setIsGuideModalOpen(true)}
+        onOpenNotifications={() => setIsNotificationsOpen(true)}
         notificationsCount={state.notifications.length}
       />
 
@@ -71,6 +74,7 @@ export default function App() {
             onNavigateTab={tab => setActiveTab(tab)}
             onOpenNewRoute={() => setIsRouteModalOpen(true)}
             onOpenReportModal={() => setIsReportModalOpen(true)}
+            onOpenNotifications={() => setIsNotificationsOpen(true)}
           />
         )}
 
@@ -159,6 +163,14 @@ export default function App() {
       <RuralRecyclingGuideModal
         isOpen={isGuideModalOpen}
         onClose={() => setIsGuideModalOpen(false)}
+      />
+
+      {/* Notifications & Registered Users Modal */}
+      <NotificationsModal
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        notifications={state.notifications}
+        users={modelStore.getUsers()}
       />
     </div>
   );

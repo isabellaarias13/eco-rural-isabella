@@ -3,12 +3,14 @@ export type UserRole = 'habitante' | 'conductor' | 'coordinador' | 'administrado
 export interface User {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   documentId: string;
   vereda: string;
   phone: string;
   role: UserRole;
   avatarUrl?: string;
+  password?: string;
+  createdAt?: string;
 }
 
 export interface Vereda {
@@ -156,3 +158,7 @@ export interface MaterialDistribution {
   color: string;
   description: string;
 }
+
+export type CollectionRoute = RuralRoute;
+export type CommunityAlert = IncidentAlert;
+

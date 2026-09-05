@@ -42,6 +42,7 @@ interface DashboardViewProps {
   onNavigateTab: (tab: string) => void;
   onOpenNewRoute: () => void;
   onOpenReportModal: () => void;
+  onOpenNotifications?: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -54,7 +55,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   materials,
   onNavigateTab,
   onOpenNewRoute,
-  onOpenReportModal
+  onOpenReportModal,
+  onOpenNotifications
 }) => {
   const [statsPeriod, setStatsPeriod] = useState<'semana' | 'mes'>('mes');
   const [selectedVeredaOnMap, setSelectedVeredaOnMap] = useState<string | null>(null);
@@ -541,6 +543,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           ))}
         </div>
+      </div>
+
+      {/* 11. CENTRO DE NOTIFICACIONES & USUARIOS REGISTRADOS */}
+      <div className="bg-gradient-to-br from-emerald-900 to-teal-950 rounded-2xl p-5 text-white shadow-xl border border-emerald-800/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex items-center space-x-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-amber-400 text-emerald-950 flex items-center justify-center font-black shadow-lg shrink-0">
+            <Bell className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm sm:text-base font-black tracking-tight">
+                Notificaciones Veredales & Censo de Habitantes
+              </h3>
+              <span className="bg-emerald-800 text-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-600/60">
+                {notifications.length} avisos
+              </span>
+            </div>
+            <p className="text-xs text-emerald-200/90 mt-0.5">
+              Consulta avisos de rutas, reportes de la comunidad y descarga el listado oficial de usuarios registrados.
+            </p>
+          </div>
+        </div>
+
+        <button
+          id="btn-open-notifications-dashboard"
+          onClick={onOpenNotifications}
+          className="w-full md:w-auto px-5 py-2.5 bg-amber-400 hover:bg-amber-300 text-emerald-950 font-black text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center space-x-2 active:scale-95 shrink-0"
+        >
+          <Users className="w-4 h-4" />
+          <span>Ver Notificaciones & Descargar Usuarios</span>
+        </button>
       </div>
     </div>
   );

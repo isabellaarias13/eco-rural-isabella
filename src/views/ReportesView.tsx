@@ -74,26 +74,38 @@ export const ReportesView: React.FC<ReportesViewProps> = ({
           </p>
         </div>
 
-        {/* Export Buttons: PDF & Excel */}
-        <div className="flex items-center space-x-2.5">
+        {/* Export and Print Buttons: PDF, Excel & Direct Print */}
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <button
+            id="btn-imprimir-reporte"
+            onClick={() => window.print()}
+            className="flex-1 sm:flex-none px-3.5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center justify-center space-x-1.5 active:scale-95"
+            title="Imprimir reporte directamente"
+          >
+            <Printer className="w-4 h-4 text-emerald-400" />
+            <span>Imprimir</span>
+          </button>
+
           <button
             id="btn-exportar-excel"
             onClick={handleExportCSV}
             disabled={isExportingCSV}
-            className="px-4 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center space-x-1.5 active:scale-95"
+            className="flex-1 sm:flex-none px-3.5 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center justify-center space-x-1.5 active:scale-95"
+            title="Descargar en Excel o formato CSV"
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
-            <span>Exportar Excel / CSV</span>
+            <span>Excel / CSV</span>
           </button>
 
           <button
             id="btn-exportar-pdf"
             onClick={handleExportPDF}
             disabled={isExportingPDF}
-            className="px-4 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-xl font-bold text-xs shadow-md shadow-red-900/20 transition-all cursor-pointer flex items-center space-x-1.5 active:scale-95"
+            className="flex-1 sm:flex-none px-3.5 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-xl font-bold text-xs shadow-md shadow-red-900/20 transition-all cursor-pointer flex items-center justify-center space-x-1.5 active:scale-95"
+            title="Descargar PDF Oficial"
           >
             <FileText className="w-4 h-4 text-amber-300" />
-            <span>Exportar PDF Oficial</span>
+            <span>PDF Oficial</span>
           </button>
         </div>
       </div>
