@@ -96,8 +96,21 @@ class EcoRuralModelStore {
 
   private init() {
     this.users = loadFromStorage<User[]>(STORAGE_KEYS.USERS, INITIAL_USERS);
-    // User must log in explicitly; do not auto-login as initial demo user
-    this.currentUser = loadFromStorage<User | null>(STORAGE_KEYS.CURRENT_USER, null);
+    // Remove any persisted localStorage user so every device starts at login/register screen
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    
+    // Check sessionStorage only if the user explicitly logged in during this active browser tab
+    try {
+      const activeSession = sessionStorage.getItem('ecorural_session_user');
+      if (activeSession) {
+        this.currentUser = JSON.parse(activeSession);
+      } else {
+        this.currentUser = null;
+      }
+    } catch {
+      this.currentUser = null;
+    }
+
     this.trucks = loadFromStorage<Truck[]>(STORAGE_KEYS.TRUCKS, INITIAL_TRUCKS);
     this.routes = loadFromStorage<RuralRoute[]>(STORAGE_KEYS.ROUTES, INITIAL_ROUTES);
     this.collections = loadFromStorage<CollectionRecord[]>(STORAGE_KEYS.COLLECTIONS, INITIAL_COLLECTIONS);
@@ -117,7 +130,13 @@ class EcoRuralModelStore {
         if (!snapshot.empty) {
           const remoteUsers = snapshot.docs.map(d => d.data() as User);
           this.isSyncingFromFirebase = true;
-          this.users = remoteUsers;
+          // Merge remote users with local users so newly created users are preserved
+          const userMap = new Map<string, User>();
+          // Remote users first
+          remoteUsers.forEach(u => userMap.set(u.id, u));
+          // Local users take precedence to keep freshly registered users immediately
+          this.users.forEach(u => userMap.set(u.id, u));
+          this.users = Array.from(userMap.values());
           saveToStorage(STORAGE_KEYS.USERS, this.users);
           
           // Only update currentUser if one was already explicitly logged in; DO NOT override with users[0]
@@ -127,7 +146,7 @@ class EcoRuralModelStore {
             );
             if (updatedCurrent) {
               this.currentUser = updatedCurrent;
-              saveToStorage(STORAGE_KEYS.CURRENT_USER, this.currentUser);
+              sessionStorage.setItem('ecorural_session_user', JSON.stringify(this.currentUser));
             }
           }
           this.isSyncingFromFirebase = false;
@@ -293,8 +312,18 @@ class EcoRuralModelStore {
   // Auth Actions
   public setCurrentUser(user: User | null): void {
     this.currentUser = user;
-    saveToStorage(STORAGE_KEYS.CURRENT_USER, this.currentUser);
+    if (user) {
+      sessionStorage.setItem('ecorural_session_user', JSON.stringify(user));
+    } else {
+      sessionStorage.removeItem('ecorural_session_user');
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    }
     this.notify();
+  }
+
+  public isAdminUser(): boolean {
+    if (!this.currentUser) return false;
+    return this.currentUser.role === 'administrador' || this.currentUser.role === 'coordinador';
   }
 
   public loginWithDocumentOrRole(documentId: string, role?: User['role']): User | null {
@@ -311,7 +340,7 @@ class EcoRuralModelStore {
       ...userData,
       id: `usr-${Date.now()}`
     };
-    this.users = [...this.users, newUser];
+    this.users = [newUser, ...this.users.filter(u => u.id !== newUser.id)];
     saveToStorage(STORAGE_KEYS.USERS, this.users);
     this.setCurrentUser(newUser);
 
@@ -331,8 +360,12 @@ class EcoRuralModelStore {
     return newUser;
   }
 
-  // Truck Actions
+  // Truck Actions (Restricted to Administrators)
   public addTruck(truckData: Omit<Truck, 'id'>): Truck {
+    if (!this.isAdminUser()) {
+      console.warn('Permiso denegado: Solo administradores pueden agregar camiones.');
+      throw new Error('Solo los administradores tienen permiso para agregar camiones.');
+    }
     const newTruck: Truck = {
       ...truckData,
       id: `trk-${Date.now()}`
@@ -358,6 +391,10 @@ class EcoRuralModelStore {
   }
 
   public updateTruck(id: string, updates: Partial<Truck>): void {
+    if (!this.isAdminUser()) {
+      console.warn('Permiso denegado: Solo administradores pueden actualizar camiones.');
+      return;
+    }
     this.trucks = this.trucks.map(t => (t.id === id ? { ...t, ...updates } : t));
     saveToStorage(STORAGE_KEYS.TRUCKS, this.trucks);
     
@@ -370,6 +407,10 @@ class EcoRuralModelStore {
   }
 
   public updateTruckStatus(id: string, status: Truck['status'], currentVereda?: string): void {
+    if (!this.isAdminUser()) {
+      console.warn('Permiso denegado: Solo administradores pueden cambiar estado de camiones.');
+      return;
+    }
     this.trucks = this.trucks.map(t => {
       if (t.id === id) {
         return {
@@ -389,14 +430,22 @@ class EcoRuralModelStore {
   }
 
   public deleteTruck(id: string): void {
+    if (!this.isAdminUser()) {
+      console.warn('Permiso denegado: Solo administradores pueden eliminar camiones.');
+      return;
+    }
     this.trucks = this.trucks.filter(t => t.id !== id);
     saveToStorage(STORAGE_KEYS.TRUCKS, this.trucks);
     deleteDoc(doc(db, 'trucks', id)).catch(err => console.warn('Firestore delete truck:', err));
     this.notify();
   }
 
-  // Route Actions
+  // Route Actions (Restricted to Administrators)
   public addRoute(routeData: Omit<RuralRoute, 'id'>): RuralRoute {
+    if (!this.isAdminUser()) {
+      console.warn('Permiso denegado: Solo administradores pueden programar rutas.');
+      throw new Error('Solo los administradores tienen permiso para programar rutas.');
+    }
     const newRoute: RuralRoute = {
       ...routeData,
       id: `rt-${Date.now()}`
@@ -423,6 +472,10 @@ class EcoRuralModelStore {
   }
 
   public updateRoute(id: string, updates: Partial<RuralRoute>): void {
+    if (!this.isAdminUser()) {
+      console.warn('Permiso denegado: Solo administradores pueden actualizar rutas.');
+      return;
+    }
     this.routes = this.routes.map(r => (r.id === id ? { ...r, ...updates } : r));
     saveToStorage(STORAGE_KEYS.ROUTES, this.routes);
 
@@ -435,6 +488,10 @@ class EcoRuralModelStore {
   }
 
   public deleteRoute(id: string): void {
+    if (!this.isAdminUser()) {
+      console.warn('Permiso denegado: Solo administradores pueden eliminar rutas.');
+      return;
+    }
     this.routes = this.routes.filter(r => r.id !== id);
     saveToStorage(STORAGE_KEYS.ROUTES, this.routes);
     deleteDoc(doc(db, 'routes', id)).catch(err => console.warn('Firestore delete route:', err));
@@ -442,6 +499,11 @@ class EcoRuralModelStore {
   }
 
   public toggleRouteStop(routeId: string, stopId: string): void {
+    // Only admins can change stop statuses
+    if (!this.isAdminUser()) {
+      console.warn('Permiso denegado: Solo administradores pueden verificar paradas.');
+      return;
+    }
     this.routes = this.routes.map(route => {
       if (route.id === routeId && route.stops) {
         const updatedStops = route.stops.map(s => {
@@ -467,8 +529,12 @@ class EcoRuralModelStore {
     this.notify();
   }
 
-  // Collection Actions
+  // Collection Actions (Restricted to Administrators)
   public addCollection(collectionData: Omit<CollectionRecord, 'id'>): CollectionRecord {
+    if (!this.isAdminUser()) {
+      console.warn('Permiso denegado: Solo administradores pueden registrar recolecciones.');
+      throw new Error('Solo los administradores tienen permiso para registrar pesajes y recolecciones.');
+    }
     const newRecord: CollectionRecord = {
       ...collectionData,
       id: `col-${Date.now()}`
@@ -505,6 +571,10 @@ class EcoRuralModelStore {
   }
 
   public updateCollection(id: string, updates: Partial<CollectionRecord>): void {
+    if (!this.isAdminUser()) {
+      console.warn('Permiso denegado: Solo administradores pueden modificar recolecciones.');
+      return;
+    }
     this.collections = this.collections.map(c => (c.id === id ? { ...c, ...updates } : c));
     saveToStorage(STORAGE_KEYS.COLLECTIONS, this.collections);
     
@@ -517,13 +587,17 @@ class EcoRuralModelStore {
   }
 
   public deleteCollection(id: string): void {
+    if (!this.isAdminUser()) {
+      console.warn('Permiso denegado: Solo administradores pueden eliminar registros de recolección.');
+      return;
+    }
     this.collections = this.collections.filter(c => c.id !== id);
     saveToStorage(STORAGE_KEYS.COLLECTIONS, this.collections);
     deleteDoc(doc(db, 'collections', id)).catch(err => console.warn('Firestore delete collection:', err));
     this.notify();
   }
 
-  // Alert Actions
+  // Alert Actions (Anyone can report, but ONLY admins can resolve/update status)
   public addAlert(alertData: Omit<IncidentAlert, 'id'>): IncidentAlert {
     const newAlert: IncidentAlert = {
       ...alertData,
@@ -550,6 +624,10 @@ class EcoRuralModelStore {
   }
 
   public updateAlertStatus(id: string, status: IncidentAlert['status'], actionTaken?: string): void {
+    if (!this.isAdminUser()) {
+      console.warn('Permiso denegado: Solo administradores pueden cambiar el estado de las alertas.');
+      return;
+    }
     this.alerts = this.alerts.map(a => (a.id === id ? { ...a, status, actionTaken: actionTaken || a.actionTaken } : a));
     saveToStorage(STORAGE_KEYS.ALERTS, this.alerts);
     
@@ -630,12 +708,13 @@ class EcoRuralModelStore {
   }
 
   public addUser(user: User): void {
-    this.users = [...this.users.filter(u => u.id !== user.id), user];
+    // Put new registered user at index 0 so they appear immediately at the top of the registered list
+    this.users = [user, ...this.users.filter(u => u.id !== user.id && u.documentId !== user.documentId)];
     saveToStorage(STORAGE_KEYS.USERS, this.users);
     this.setCurrentUser(user);
     setDoc(doc(db, 'users', user.id), user).catch(err => console.warn('Firestore write user:', err));
 
-    // Register a system notification so the new user appears in notifications
+    // Register a system notification so the new user appears in notifications immediately
     this.addNotification({
       id: `notif-user-${Date.now()}`,
       title: 'Nuevo Usuario Registrado',
@@ -647,6 +726,39 @@ class EcoRuralModelStore {
     });
 
     this.notify();
+  }
+
+  public updateUserProfile(userId: string, data: Partial<User>): { success: boolean; user?: User; message: string } {
+    const userIndex = this.users.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+      return { success: false, message: 'Usuario no encontrado.' };
+    }
+
+    const updatedUser: User = {
+      ...this.users[userIndex],
+      ...data
+    };
+
+    this.users[userIndex] = updatedUser;
+    saveToStorage(STORAGE_KEYS.USERS, this.users);
+    setDoc(doc(db, 'users', userId), updatedUser).catch(err => console.warn('Firestore update profile:', err));
+
+    if (this.currentUser?.id === userId) {
+      this.currentUser = updatedUser;
+      sessionStorage.setItem('ecorural_session_user', JSON.stringify(updatedUser));
+    }
+
+    this.addNotification({
+      id: `notif-profile-${Date.now()}`,
+      title: 'Perfil Actualizado',
+      message: `La información de perfil de ${updatedUser.name} ha sido actualizada con éxito.`,
+      timestamp: 'Ahora mismo',
+      type: 'exito',
+      read: false
+    });
+
+    this.notify();
+    return { success: true, user: updatedUser, message: 'Perfil actualizado con éxito.' };
   }
 
   public updateUserPassword(documentIdOrEmailOrPhone: string, newPassword: string): { success: boolean; message: string; user?: User } {
@@ -679,7 +791,7 @@ class EcoRuralModelStore {
 
     if (this.currentUser?.id === updatedUser.id) {
       this.currentUser = updatedUser;
-      saveToStorage(STORAGE_KEYS.CURRENT_USER, this.currentUser);
+      sessionStorage.setItem('ecorural_session_user', JSON.stringify(this.currentUser));
     }
 
     this.addNotification({

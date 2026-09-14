@@ -46,6 +46,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'rutas', label: 'Rutas y Horarios', icon: RouteIcon },
     { id: 'camiones', label: 'Camiones y Flota', icon: TruckIcon },
     { id: 'reportes', label: 'Reportes y Análisis', icon: BarChart3 },
+    { id: 'perfil', label: 'Mi Perfil', icon: UserIcon },
   ];
 
   return (
@@ -151,7 +152,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             {/* Current User Info */}
-            <div className="flex items-center space-x-2 pl-2 border-l border-emerald-800">
+            <div 
+              onClick={() => onSelectTab('perfil')}
+              className="flex items-center space-x-2 pl-2 border-l border-emerald-800 cursor-pointer hover:opacity-90 transition-opacity"
+              title="Ver mi perfil"
+            >
               <div className="w-8 h-8 rounded-full bg-emerald-700 text-amber-300 flex items-center justify-center font-bold text-xs border border-emerald-600 shrink-0">
                 {currentUser.name.charAt(0)}
               </div>
@@ -163,16 +168,16 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {currentUser.role} &middot; {currentUser.vereda.split(' ')[0]}
                 </div>
               </div>
-
-              <button
-                id="btn-logout"
-                onClick={onLogout}
-                className="p-1.5 text-emerald-300 hover:text-red-300 hover:bg-emerald-800 rounded-lg transition-colors cursor-pointer ml-1"
-                title="Cerrar Sesión"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
             </div>
+
+            <button
+              id="btn-logout"
+              onClick={onLogout}
+              className="p-1.5 text-emerald-300 hover:text-red-300 hover:bg-emerald-800 rounded-lg transition-colors cursor-pointer ml-1"
+              title="Cerrar Sesión"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Mobile Right Action Buttons (Notifications + Hamburger) */}

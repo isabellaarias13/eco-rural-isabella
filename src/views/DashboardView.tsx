@@ -26,7 +26,9 @@ import {
   IncidentAlert, 
   AppNotification, 
   MonthlyStats, 
-  MaterialDistribution 
+  MaterialDistribution,
+  User,
+  isAdmin
 } from '../types';
 import { modelStore } from '../models/store';
 import { AlertController } from '../controllers/alertController';
@@ -39,6 +41,7 @@ interface DashboardViewProps {
   notifications: AppNotification[];
   monthlyStats: MonthlyStats[];
   materials: MaterialDistribution[];
+  currentUser: User;
   onNavigateTab: (tab: string) => void;
   onOpenNewRoute: () => void;
   onOpenReportModal: () => void;
@@ -53,11 +56,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   notifications,
   monthlyStats,
   materials,
+  currentUser,
   onNavigateTab,
   onOpenNewRoute,
   onOpenReportModal,
   onOpenNotifications
 }) => {
+  const isUserAdmin = isAdmin(currentUser);
   const [statsPeriod, setStatsPeriod] = useState<'semana' | 'mes'>('mes');
   const [selectedVeredaOnMap, setSelectedVeredaOnMap] = useState<string | null>(null);
 
@@ -530,7 +535,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               )}
 
-              {alert.status !== 'atendida' && (
+              {alert.status !== 'atendida' && isUserAdmin && (
                 <div className="mt-2 flex justify-end">
                   <button
                     onClick={() => AlertController.resolveAlert(alert.id, 'Atendido por cuadrilla municipal.')}

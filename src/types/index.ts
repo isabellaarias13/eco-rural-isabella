@@ -1,5 +1,10 @@
 export type UserRole = 'habitante' | 'conductor' | 'coordinador' | 'administrador';
 
+export const isAdmin = (user: User | null | undefined): boolean => {
+  if (!user) return false;
+  return user.role === 'administrador' || user.role === 'coordinador';
+};
+
 export interface User {
   id: string;
   name: string;

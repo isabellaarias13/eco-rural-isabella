@@ -8,6 +8,7 @@ import { RecoleccionesView } from './views/RecoleccionesView';
 import { RutasView } from './views/RutasView';
 import { CamionesView } from './views/CamionesView';
 import { ReportesView } from './views/ReportesView';
+import { PerfilView } from './views/PerfilView';
 
 // Modals
 import { NewRouteModal } from './components/NewRouteModal';
@@ -73,6 +74,7 @@ export default function App() {
               notifications={state.notifications}
               monthlyStats={state.monthlyStats}
               materials={state.materials}
+              currentUser={state.currentUser}
               onNavigateTab={tab => setActiveTab(tab)}
               onOpenNewRoute={() => setIsRouteModalOpen(true)}
               onOpenReportModal={() => setIsReportModalOpen(true)}
@@ -86,6 +88,7 @@ export default function App() {
               collections={state.collections}
               trucks={state.trucks}
               alerts={state.alerts}
+              currentUser={state.currentUser}
               onOpenNewRoute={() => setIsRouteModalOpen(true)}
               onOpenNewCollection={() => setIsCollectionModalOpen(true)}
             />
@@ -96,6 +99,7 @@ export default function App() {
               routes={state.routes}
               trucks={state.trucks}
               alerts={state.alerts}
+              currentUser={state.currentUser}
               onOpenNewRoute={() => setIsRouteModalOpen(true)}
               onOpenReportModal={() => setIsReportModalOpen(true)}
             />
@@ -104,6 +108,7 @@ export default function App() {
           {activeTab === 'camiones' && (
             <CamionesView
               trucks={state.trucks}
+              currentUser={state.currentUser}
               onOpenNewTruck={() => setIsTruckModalOpen(true)}
             />
           )}
@@ -112,6 +117,14 @@ export default function App() {
             <ReportesView
               monthlyStats={state.monthlyStats}
               materials={state.materials}
+            />
+          )}
+
+          {activeTab === 'perfil' && (
+            <PerfilView
+              currentUser={state.currentUser}
+              users={state.users}
+              onNavigateTab={tab => setActiveTab(tab)}
             />
           )}
         </ErrorBoundary>

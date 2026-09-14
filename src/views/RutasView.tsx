@@ -18,7 +18,7 @@ import {
   ShieldCheck,
   Search
 } from 'lucide-react';
-import { RuralRoute, Truck, IncidentAlert, RouteStatus } from '../types';
+import { RuralRoute, Truck, IncidentAlert, RouteStatus, User, isAdmin } from '../types';
 import { PURIFICACION_VEREDAS } from '../models/veredasData';
 import { RouteController } from '../controllers/routeController';
 
@@ -26,6 +26,7 @@ interface RutasViewProps {
   routes: RuralRoute[];
   trucks: Truck[];
   alerts: IncidentAlert[];
+  currentUser: User;
   onOpenNewRoute: () => void;
   onOpenReportModal: () => void;
 }
@@ -34,9 +35,11 @@ export const RutasView: React.FC<RutasViewProps> = ({
   routes,
   trucks,
   alerts,
+  currentUser,
   onOpenNewRoute,
   onOpenReportModal
 }) => {
+  const isUserAdmin = isAdmin(currentUser);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('todos');
   const [editingRoute, setEditingRoute] = useState<RuralRoute | null>(null);
@@ -114,14 +117,21 @@ export const RutasView: React.FC<RutasViewProps> = ({
           </p>
         </div>
 
-        <button
-          id="btn-nueva-ruta"
-          onClick={onOpenNewRoute}
-          className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-900/20 transition-all cursor-pointer flex items-center space-x-1.5"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Nueva Ruta</span>
-        </button>
+        {isUserAdmin ? (
+          <button
+            id="btn-nueva-ruta"
+            onClick={onOpenNewRoute}
+            className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-900/20 transition-all cursor-pointer flex items-center space-x-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nueva Ruta</span>
+          </button>
+        ) : (
+          <div className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-bold">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>Modo Consulta Ciudadana</span>
+          </div>
+        )}
       </div>
 
       {/* 4 KPIs: Rutas Activas, Camiones en Servicio, Toneladas del Día, Incidencias */}
@@ -295,43 +305,51 @@ export const RutasView: React.FC<RutasViewProps> = ({
                       </span>
                     </td>
                     <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                      {/* Change status buttons */}
-                      {route.status === 'programada' && (
-                        <button
-                          onClick={() => RouteController.changeStatus(route.id, 'en_progreso')}
-                          className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
-                          title="Iniciar Recorrido"
-                        >
-                          Iniciar
-                        </button>
-                      )}
-                      {route.status === 'en_progreso' && (
-                        <button
-                          onClick={() => RouteController.changeStatus(route.id, 'completada')}
-                          className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
-                          title="Finalizar Ruta"
-                        >
-                          Completar
-                        </button>
-                      )}
+                      {isUserAdmin ? (
+                        <>
+                          {/* Change status buttons */}
+                          {route.status === 'programada' && (
+                            <button
+                              onClick={() => RouteController.changeStatus(route.id, 'en_progreso')}
+                              className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
+                              title="Iniciar Recorrido"
+                            >
+                              Iniciar
+                            </button>
+                          )}
+                          {route.status === 'en_progreso' && (
+                            <button
+                              onClick={() => RouteController.changeStatus(route.id, 'completada')}
+                              className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold transition-colors cursor-pointer"
+                              title="Finalizar Ruta"
+                            >
+                              Completar
+                            </button>
+                          )}
 
-                      {/* Edit Route Button */}
-                      <button
-                        onClick={() => openEditModal(route)}
-                        className="p-1.5 text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-                        title="Editar Ruta"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
+                          {/* Edit Route Button */}
+                          <button
+                            onClick={() => openEditModal(route)}
+                            className="p-1.5 text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                            title="Editar Ruta"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
 
-                      {/* Delete Route Button */}
-                      <button
-                        onClick={() => RouteController.deleteRoute(route.id)}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                        title="Eliminar Ruta"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                          {/* Delete Route Button */}
+                          <button
+                            onClick={() => RouteController.deleteRoute(route.id)}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            title="Eliminar Ruta"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-[10px] text-gray-400 font-semibold px-2 py-1 bg-gray-50 rounded border border-gray-100">
+                          Solo lectura
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -361,8 +379,14 @@ export const RutasView: React.FC<RutasViewProps> = ({
             {routes[0]?.stops.map(stop => (
               <div 
                 key={stop.id}
-                onClick={() => RouteController.toggleStop(routes[0].id, stop.id)}
-                className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                onClick={() => {
+                  if (isUserAdmin) {
+                    RouteController.toggleStop(routes[0].id, stop.id);
+                  }
+                }}
+                className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                  isUserAdmin ? 'cursor-pointer' : 'cursor-default'
+                } ${
                   stop.completed 
                     ? 'bg-emerald-50 border-emerald-300 text-emerald-950' 
                     : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'

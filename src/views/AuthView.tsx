@@ -14,11 +14,14 @@ import {
   EyeOff,
   KeyRound,
   ArrowLeft,
-  HelpCircle
+  HelpCircle,
+  Sparkles,
+  Truck
 } from 'lucide-react';
 import { PURIFICACION_VEREDAS } from '../models/veredasData';
 import { UserRole } from '../types';
 import { AuthController } from '../controllers/authController';
+import { modelStore } from '../models/store';
 
 interface AuthViewProps {
   onSuccess: () => void;
@@ -172,9 +175,22 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
     setPassword(newPassword);
   };
 
-  const quickDemoLogin = (role: UserRole) => {
-    AuthController.switchDemoRole(role);
-    onSuccess();
+  // Demo account selection state (Only fills credentials in the form as an option before entering)
+  const [selectedDemoRole, setSelectedDemoRole] = useState<UserRole | null>(null);
+
+  const getDemoUser = (role: UserRole) => {
+    const users = modelStore.getUsers();
+    return users.find(u => u.role === role);
+  };
+
+  const handleSelectDemoAccount = (role: UserRole) => {
+    const user = getDemoUser(role);
+    if (user) {
+      setEmailOrDoc(user.documentId);
+      setPassword(user.password || '123456');
+      setSelectedDemoRole(role);
+      setErrorMsg('');
+    }
   };
 
   return (
@@ -333,6 +349,35 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                   </div>
                 </div>
 
+                {/* Feedback when a demo account is selected */}
+                {selectedDemoRole && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-950 flex items-start justify-between animate-in fade-in">
+                    <div className="flex items-start space-x-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-extrabold text-emerald-900">
+                          Cuenta seleccionada: {getDemoUser(selectedDemoRole)?.name || selectedDemoRole}
+                        </div>
+                        <p className="text-[11px] text-emerald-700 leading-snug mt-0.5">
+                          Cédula y contraseña autocompletadas en el formulario. Haz clic en <strong>"Ingresar al Sistema Rural"</strong> para confirmar y acceder.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDemoRole(null);
+                        setEmailOrDoc('');
+                        setPassword('');
+                      }}
+                      className="text-[10px] font-bold text-gray-500 hover:text-red-600 ml-2 px-2 py-1 rounded bg-white border border-gray-200 shrink-0 cursor-pointer"
+                      title="Limpiar campos"
+                    >
+                      Limpiar
+                    </button>
+                  </div>
+                )}
+
                 <button
                   id="btn-submit-login"
                   type="submit"
@@ -341,6 +386,108 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                   <span>Ingresar al Sistema Rural</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
+
+                {/* Acceso Rápido de Demostración - Solo como opción previa para cargar la cuenta antes de entrar */}
+                <div className="mt-5 pt-4 border-t border-gray-200">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center space-x-1.5 text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Acceso Rápido de Demostración</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      Opción antes de entrar
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 mb-2.5 leading-snug">
+                    Selecciona una cuenta de prueba para autocompletar la cédula y la contraseña en los campos de arriba. <strong>No entrará directamente sin pedir la cuenta</strong>; deberás confirmar haciendo clic en el botón de ingreso.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {/* Coordinador Card */}
+                    <button
+                      id="btn-demo-coordinador"
+                      type="button"
+                      onClick={() => handleSelectDemoAccount('coordinador')}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        selectedDemoRole === 'coordinador'
+                          ? 'border-emerald-600 bg-emerald-50/90 ring-2 ring-emerald-500/20'
+                          : 'border-gray-200 bg-gray-50/80 hover:bg-gray-100 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <span className="text-[11px] font-black text-purple-900 flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3 text-purple-600" />
+                          Coordinador
+                        </span>
+                        {selectedDemoRole === 'coordinador' && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+                        )}
+                      </div>
+                      <div className="text-[11px] font-bold text-gray-800 truncate">
+                        {getDemoUser('coordinador')?.name || 'Carlos Morales'}
+                      </div>
+                      <div className="text-[10px] text-gray-400 font-mono mt-0.5">
+                        CC: 93.382.410
+                      </div>
+                    </button>
+
+                    {/* Conductor Card */}
+                    <button
+                      id="btn-demo-conductor"
+                      type="button"
+                      onClick={() => handleSelectDemoAccount('conductor')}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        selectedDemoRole === 'conductor'
+                          ? 'border-emerald-600 bg-emerald-50/90 ring-2 ring-emerald-500/20'
+                          : 'border-gray-200 bg-gray-50/80 hover:bg-gray-100 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <span className="text-[11px] font-black text-sky-900 flex items-center gap-1">
+                          <Truck className="w-3 h-3 text-sky-600" />
+                          Conductor
+                        </span>
+                        {selectedDemoRole === 'conductor' && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+                        )}
+                      </div>
+                      <div className="text-[11px] font-bold text-gray-800 truncate">
+                        {getDemoUser('conductor')?.name || 'Jairo Benítez'}
+                      </div>
+                      <div className="text-[10px] text-gray-400 font-mono mt-0.5">
+                        CC: 14.280.993
+                      </div>
+                    </button>
+
+                    {/* Habitante Card */}
+                    <button
+                      id="btn-demo-habitante"
+                      type="button"
+                      onClick={() => handleSelectDemoAccount('habitante')}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        selectedDemoRole === 'habitante'
+                          ? 'border-emerald-600 bg-emerald-50/90 ring-2 ring-emerald-500/20'
+                          : 'border-gray-200 bg-gray-50/80 hover:bg-gray-100 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <span className="text-[11px] font-black text-amber-900 flex items-center gap-1">
+                          <UserIcon className="w-3 h-3 text-amber-600" />
+                          Habitante
+                        </span>
+                        {selectedDemoRole === 'habitante' && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+                        )}
+                      </div>
+                      <div className="text-[11px] font-bold text-gray-800 truncate">
+                        {getDemoUser('habitante')?.name || 'Esperanza Guzmán'}
+                      </div>
+                      <div className="text-[10px] text-gray-400 font-mono mt-0.5">
+                        CC: 65.742.118
+                      </div>
+                    </button>
+                  </div>
+                </div>
               </form>
             )}
 
@@ -473,6 +620,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                     <option value="habitante">Habitante Rural / Líder Comunitario</option>
                     <option value="conductor">Conductor / Operador de Camión</option>
                     <option value="coordinador">Coordinador de Aseo Municipal</option>
+                    <option value="administrador">Administrador del Sistema</option>
                   </select>
                 </div>
 
@@ -552,7 +700,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                     maxLength={10}
                     placeholder="Repite la nueva clave..."
                     required
-                    className="w-full px-3.5 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-xs font-medium"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-xs font-medium"
                   />
                 </div>
 
@@ -566,39 +714,6 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                 </button>
               </form>
             )}
-
-            {/* Quick Demo Access Bar */}
-            <div className="mt-6 pt-4 border-t border-gray-200">
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center mb-2.5">
-                Acceso Rápido de Demostración
-              </p>
-              <div className="grid grid-cols-3 gap-1.5">
-                <button
-                  id="btn-demo-coordinador"
-                  type="button"
-                  onClick={() => quickDemoLogin('coordinador')}
-                  className="px-2 py-2 rounded-lg bg-emerald-100/70 hover:bg-emerald-200 text-emerald-950 text-[11px] font-bold transition-colors cursor-pointer border border-emerald-300 text-center"
-                >
-                  Coordinador
-                </button>
-                <button
-                  id="btn-demo-conductor"
-                  type="button"
-                  onClick={() => quickDemoLogin('conductor')}
-                  className="px-2 py-2 rounded-lg bg-sky-100/70 hover:bg-sky-200 text-sky-950 text-[11px] font-bold transition-colors cursor-pointer border border-sky-300 text-center"
-                >
-                  Conductor
-                </button>
-                <button
-                  id="btn-demo-habitante"
-                  type="button"
-                  onClick={() => quickDemoLogin('habitante')}
-                  className="px-2 py-2 rounded-lg bg-amber-100/70 hover:bg-amber-200 text-amber-950 text-[11px] font-bold transition-colors cursor-pointer border border-amber-300 text-center"
-                >
-                  Habitante
-                </button>
-              </div>
-            </div>
           </div>
         </div>
 

@@ -16,10 +16,11 @@ import {
   Gauge,
   Eye,
   Trash2,
-  Sparkles
+  Sparkles,
+  ShieldCheck
 } from 'lucide-react';
 import { PurificacionMap } from '../components/PurificacionMap';
-import { RuralRoute, CollectionRecord, Truck, CommunityAlert } from '../types';
+import { RuralRoute, CollectionRecord, Truck, CommunityAlert, User, isAdmin } from '../types';
 import { CollectionController } from '../controllers/collectionController';
 
 interface RecoleccionesViewProps {
@@ -27,6 +28,7 @@ interface RecoleccionesViewProps {
   collections: CollectionRecord[];
   trucks: Truck[];
   alerts?: CommunityAlert[];
+  currentUser: User;
   onOpenNewRoute: () => void;
   onOpenNewCollection: () => void;
 }
@@ -36,9 +38,11 @@ export const RecoleccionesView: React.FC<RecoleccionesViewProps> = ({
   collections = [],
   trucks = [],
   alerts = [],
+  currentUser,
   onOpenNewRoute,
   onOpenNewCollection
 }) => {
+  const isUserAdmin = isAdmin(currentUser);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('todos');
   const [selectedCollection, setSelectedCollection] = useState<CollectionRecord | null>(null);
@@ -88,24 +92,31 @@ export const RecoleccionesView: React.FC<RecoleccionesViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center space-x-2.5">
-          <button
-            id="btn-registrar-pesaje-directo"
-            onClick={onOpenNewCollection}
-            className="px-3.5 py-2.5 bg-sky-700 hover:bg-sky-800 text-white rounded-xl font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center space-x-1.5"
-          >
-            <Scale className="w-4 h-4" />
-            <span>Registrar Pesaje</span>
-          </button>
-          <button
-            id="btn-programar-ruta-recoleccion"
-            onClick={onOpenNewRoute}
-            className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-900/20 transition-all cursor-pointer flex items-center space-x-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Programar una Ruta</span>
-          </button>
-        </div>
+        {isUserAdmin ? (
+          <div className="flex items-center space-x-2.5">
+            <button
+              id="btn-registrar-pesaje-directo"
+              onClick={onOpenNewCollection}
+              className="px-3.5 py-2.5 bg-sky-700 hover:bg-sky-800 text-white rounded-xl font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center space-x-1.5"
+            >
+              <Scale className="w-4 h-4" />
+              <span>Registrar Pesaje</span>
+            </button>
+            <button
+              id="btn-programar-ruta-recoleccion"
+              onClick={onOpenNewRoute}
+              className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-900/20 transition-all cursor-pointer flex items-center space-x-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Programar una Ruta</span>
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-bold">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>Modo Consulta Recolecciones</span>
+          </div>
+        )}
       </div>
 
       {/* 4 KPIs: Rutas Activas, Total Toneladas, Residuos Reciclados, Eficiencia */}
@@ -337,13 +348,15 @@ export const RecoleccionesView: React.FC<RecoleccionesViewProps> = ({
                       >
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => CollectionController.deleteCollection(col.id)}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                        title="Eliminar Registro"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {isUserAdmin && (
+                        <button
+                          onClick={() => CollectionController.deleteCollection(col.id)}
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                          title="Eliminar Registro"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))

@@ -16,18 +16,21 @@ import {
   Trash2,
   Edit2
 } from 'lucide-react';
-import { Truck, TruckStatus } from '../types';
+import { Truck, TruckStatus, User, isAdmin } from '../types';
 import { TruckController } from '../controllers/truckController';
 
 interface CamionesViewProps {
   trucks: Truck[];
+  currentUser: User;
   onOpenNewTruck: () => void;
 }
 
 export const CamionesView: React.FC<CamionesViewProps> = ({
   trucks,
+  currentUser,
   onOpenNewTruck
 }) => {
+  const isUserAdmin = isAdmin(currentUser);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('todos');
 
@@ -62,14 +65,21 @@ export const CamionesView: React.FC<CamionesViewProps> = ({
           </p>
         </div>
 
-        <button
-          id="btn-agregar-camion"
-          onClick={onOpenNewTruck}
-          className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-900/20 transition-all cursor-pointer flex items-center space-x-1.5"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Agregar Camión</span>
-        </button>
+        {isUserAdmin ? (
+          <button
+            id="btn-agregar-camion"
+            onClick={onOpenNewTruck}
+            className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-900/20 transition-all cursor-pointer flex items-center space-x-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Agregar Camión</span>
+          </button>
+        ) : (
+          <div className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-bold">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>Modo Consulta Flota</span>
+          </div>
+        )}
       </div>
 
       {/* 3 KPIs: Número Total de Camiones, Operativos, En Mantenimiento */}
@@ -236,23 +246,35 @@ export const CamionesView: React.FC<CamionesViewProps> = ({
                 </span>
 
                 <div className="flex items-center space-x-1.5">
-                  <select
-                    value={truck.status}
-                    onChange={e => TruckController.setStatus(truck.id, e.target.value as TruckStatus)}
-                    className="px-2.5 py-1 rounded-lg border border-gray-300 text-xs font-bold bg-white cursor-pointer focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="disponible">Marcar Disponible</option>
-                    <option value="en_servicio">Marcar Ocupado</option>
-                    <option value="mantenimiento">Marcar Mantenimiento</option>
-                  </select>
+                  {isUserAdmin ? (
+                    <>
+                      <select
+                        value={truck.status}
+                        onChange={e => TruckController.setStatus(truck.id, e.target.value as TruckStatus)}
+                        className="px-2.5 py-1 rounded-lg border border-gray-300 text-xs font-bold bg-white cursor-pointer focus:ring-2 focus:ring-emerald-500"
+                      >
+                        <option value="disponible">Marcar Disponible</option>
+                        <option value="en_servicio">Marcar Ocupado</option>
+                        <option value="mantenimiento">Marcar Mantenimiento</option>
+                      </select>
 
-                  <button
-                    onClick={() => TruckController.deleteTruck(truck.id)}
-                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                    title="Eliminar Camión"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                      <button
+                        onClick={() => TruckController.deleteTruck(truck.id)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                        title="Eliminar Camión"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  ) : (
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full capitalize ${
+                      truck.status === 'disponible'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : (truck.status === 'en_servicio' ? 'bg-sky-100 text-sky-800' : 'bg-amber-100 text-amber-800')
+                    }`}>
+                      {truck.status === 'en_servicio' ? 'En servicio' : truck.status}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
