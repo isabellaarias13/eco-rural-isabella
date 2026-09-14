@@ -19,24 +19,34 @@ import {
   EyeOff,
   Sparkles,
   Lock,
-  BadgeCheck
+  BadgeCheck,
+  Truck,
+  Trash2,
+  AlertTriangle,
+  LogOut
 } from 'lucide-react';
 import { User, isAdmin, UserRole } from '../types';
 import { modelStore } from '../models/store';
+import { AuthController } from '../controllers/authController';
 import { PURIFICACION_VEREDAS } from '../models/veredasData';
 
 interface PerfilViewProps {
   currentUser: User;
   users: User[];
   onNavigateTab?: (tab: string) => void;
+  onLogout?: () => void;
 }
 
 export const PerfilView: React.FC<PerfilViewProps> = ({
   currentUser,
   users,
-  onNavigateTab
+  onNavigateTab,
+  onLogout
 }) => {
   const isUserAdmin = isAdmin(currentUser);
+
+  // Logout modal state
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Edit profile state
   const [isEditing, setIsEditing] = useState(false);
@@ -44,14 +54,69 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
   const [editPhone, setEditPhone] = useState(currentUser.phone);
   const [editEmail, setEditEmail] = useState(currentUser.email || '');
   const [editVereda, setEditVereda] = useState(currentUser.vereda);
+  const [editRole, setEditRole] = useState<UserRole>(currentUser.role);
   const [editPassword, setEditPassword] = useState(currentUser.password || '');
   const [showPassword, setShowPassword] = useState(false);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
 
+  // Sync edit state when currentUser updates
+  React.useEffect(() => {
+    setEditName(currentUser.name);
+    setEditPhone(currentUser.phone);
+    setEditEmail(currentUser.email || '');
+    setEditVereda(currentUser.vereda);
+    setEditRole(currentUser.role);
+    setEditPassword(currentUser.password || '');
+  }, [currentUser]);
+
   // Registered users directory state
   const [userSearch, setUserSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'todos' | UserRole>('todos');
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [deleteStatusMessage, setDeleteStatusMessage] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Deduplicate registered users list to guarantee no inhabitant appears multiple times
+  const cleanUsers = React.useMemo(() => {
+    return modelStore.deduplicateUsers(users);
+  }, [users]);
+
+  const handleConfirmDelete = () => {
+    if (!userToDelete) return;
+    setIsDeleting(true);
+    const targetName = userToDelete.name;
+    const targetRole = userToDelete.role;
+    const result = modelStore.deleteUser(userToDelete.id);
+    setIsDeleting(false);
+    setUserToDelete(null);
+
+    if (result.success) {
+      setDeleteStatusMessage(`El habitante "${targetName}" (${targetRole.toUpperCase()}) fue eliminado del registro exitosamente.`);
+      setTimeout(() => setDeleteStatusMessage(null), 5000);
+    } else {
+      setDeleteStatusMessage(result.message);
+      setTimeout(() => setDeleteStatusMessage(null), 5000);
+    }
+  };
+
+  const handlePerformLogout = () => {
+    setShowLogoutModal(false);
+    if (onLogout) {
+      onLogout();
+    } else {
+      AuthController.logout();
+    }
+  };
+
+  const handleDirectRoleChange = (newRole: UserRole) => {
+    const updated = modelStore.updateUserRole(currentUser.id, newRole);
+    if (updated) {
+      setEditRole(newRole);
+      setSaveSuccessMessage(`Tu perfil ahora está activo como "${newRole.toUpperCase()}".`);
+      setTimeout(() => setSaveSuccessMessage(null), 4000);
+    }
+  };
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,11 +138,12 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
       phone: editPhone.trim(),
       email: editEmail.trim() || undefined,
       vereda: editVereda,
+      role: editRole,
       password: editPassword || currentUser.password
     });
 
     if (result.success) {
-      setSaveSuccessMessage('¡Tu información ha sido actualizada y guardada exitosamente!');
+      setSaveSuccessMessage('¡Tu información y rol de perfil han sido actualizados exitosamente!');
       setIsEditing(false);
       setTimeout(() => setSaveSuccessMessage(null), 4000);
     } else {
@@ -90,13 +156,14 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
     setEditPhone(currentUser.phone);
     setEditEmail(currentUser.email || '');
     setEditVereda(currentUser.vereda);
+    setEditRole(currentUser.role);
     setEditPassword(currentUser.password || '');
     setIsEditing(false);
     setSaveErrorMessage(null);
   };
 
-  // Filter registered users
-  const filteredUsers = users.filter(u => {
+  // Filter registered users from the deduplicated list
+  const filteredUsers = cleanUsers.filter(u => {
     const term = userSearch.toLowerCase().trim();
     const matchesSearch = 
       u.name.toLowerCase().includes(term) ||
@@ -159,8 +226,18 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2.5 flex-wrap">
           {getRoleBadge(currentUser.role)}
+          <button
+            id="btn-perfil-logout"
+            type="button"
+            onClick={() => setShowLogoutModal(true)}
+            className="px-3.5 py-2 bg-red-50 hover:bg-red-600 text-red-600 hover:text-white border border-red-200 hover:border-red-600 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer shadow-xs active:scale-95"
+            title="Cerrar sesión de forma segura"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Cerrar Sesión</span>
+          </button>
         </div>
       </div>
 
@@ -338,6 +415,22 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
 
                 <div>
                   <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                    Rol en el Sistema *
+                  </label>
+                  <select
+                    id="select-edit-role"
+                    value={editRole}
+                    onChange={e => setEditRole(e.target.value as UserRole)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-xs font-bold text-gray-900 bg-white"
+                  >
+                    <option value="coordinador">Coordinador (Supervisión y Rutas)</option>
+                    <option value="conductor">Conductor (Operación y Pesajes)</option>
+                    <option value="habitante">Habitante (Ciudadano Rural)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
                     Vereda de Purificación *
                   </label>
                   <select
@@ -403,65 +496,150 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
 
         {/* Right Column: Roles & Capabilities Card */}
         <div className="space-y-4">
-          <div className="bg-gradient-to-br from-emerald-900 to-teal-950 text-white rounded-2xl p-5 shadow-sm space-y-3">
-            <div className="flex items-center space-x-2">
-              <ShieldCheck className="w-5 h-5 text-amber-400" />
-              <h4 className="text-sm font-black tracking-tight">Nivel de Acceso y Permisos</h4>
+          <div className="bg-gradient-to-br from-emerald-900 to-teal-950 text-white rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <ShieldCheck className="w-5 h-5 text-amber-400" />
+                <h4 className="text-sm font-black tracking-tight">Nivel de Acceso y Permisos</h4>
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded-full border border-white/20">
+                {currentUser.role}
+              </span>
             </div>
 
-            {isUserAdmin ? (
+            {/* Role-specific descriptions */}
+            {currentUser.role === 'coordinador' || currentUser.role === 'administrador' ? (
               <div className="space-y-2 text-xs">
-                <div className="p-2.5 bg-emerald-800/60 rounded-xl border border-emerald-700/60 text-emerald-100">
-                  <p className="font-bold text-amber-300 flex items-center gap-1.5 mb-1">
+                <div className="p-3 bg-emerald-800/70 rounded-xl border border-emerald-700 text-emerald-100">
+                  <p className="font-extrabold text-amber-300 flex items-center gap-1.5 mb-1 text-xs">
                     <Sparkles className="w-4 h-4" />
-                    Cuenta de Administrador Activa
+                    Rol Activo: Coordinador Rural
                   </p>
-                  <p className="leading-relaxed text-[11px]">
-                    Tienes control total: puedes programar rutas, registrar nuevos camiones, registrar pesajes de recolección y eliminar o modificar información en todo el sistema.
+                  <p className="leading-relaxed text-[11px] text-emerald-100">
+                    Supervisión completa: programa y edita rutas veredales, asigna camiones de recolección, registra pesajes oficiales y controla alertas de quemas en Purificación.
                   </p>
                 </div>
                 <ul className="space-y-1.5 text-[11px] text-emerald-200 font-medium pl-1">
                   <li className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Edición y eliminación de rutas veredales</span>
+                    <span>Edición y asignación de rutas veredales</span>
                   </li>
                   <li className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Alta y baja de camiones en la flota</span>
+                    <span>Control de flota de camiones y conductores</span>
                   </li>
                   <li className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Control y resolución de alertas por quema</span>
+                    <span>Resolución y atención a reportes de quemas</span>
+                  </li>
+                </ul>
+              </div>
+            ) : currentUser.role === 'conductor' ? (
+              <div className="space-y-2 text-xs">
+                <div className="p-3 bg-sky-950/80 rounded-xl border border-sky-700/60 text-sky-100">
+                  <p className="font-extrabold text-sky-300 flex items-center gap-1.5 mb-1 text-xs">
+                    <Truck className="w-4 h-4" />
+                    Rol Activo: Conductor Operativo
+                  </p>
+                  <p className="leading-relaxed text-[11px] text-sky-100">
+                    Operación logística en campo: verificación de rutas programadas, registro de pesajes de residuos recolectados y reporte de estado mecánico de camiones.
+                  </p>
+                </div>
+                <ul className="space-y-1.5 text-[11px] text-sky-200 font-medium pl-1">
+                  <li className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Confirmación y ejecución de rutas rurales</span>
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Registro de pesajes y toneladas recogidas</span>
+                  </li>
+                  <li className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Reporte de novedades viales y mecánicas</span>
                   </li>
                 </ul>
               </div>
             ) : (
               <div className="space-y-2 text-xs">
-                <div className="p-2.5 bg-emerald-800/60 rounded-xl border border-emerald-700/60 text-emerald-100">
-                  <p className="font-bold text-emerald-200 flex items-center gap-1.5 mb-1">
-                    <Lock className="w-4 h-4 text-amber-300" />
-                    Modo de Consulta & Participación Ciudadana
+                <div className="p-3 bg-amber-950/80 rounded-xl border border-amber-700/60 text-amber-100">
+                  <p className="font-extrabold text-amber-300 flex items-center gap-1.5 mb-1 text-xs">
+                    <UserIcon className="w-4 h-4" />
+                    Rol Activo: Habitante Rural
                   </p>
-                  <p className="leading-relaxed text-[11px]">
-                    Tu rol actual es <strong>{currentUser.role}</strong>. Para mantener la integridad de los datos oficiales, los cambios estructurales y eliminaciones están restringidos exclusivamente a administradores.
+                  <p className="leading-relaxed text-[11px] text-amber-100">
+                    Participación comunitaria: consulta de fechas y horarios de paso del camión por tu vereda, reporte de quemas de basura y guía de separación en la finca.
                   </p>
                 </div>
-                <ul className="space-y-1.5 text-[11px] text-emerald-200 font-medium pl-1">
+                <ul className="space-y-1.5 text-[11px] text-amber-200 font-medium pl-1">
                   <li className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Reportar incidencias y quemas en veredas</span>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Consultar rutas y horarios en tu vereda</span>
                   </li>
                   <li className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Consultar rutas y horarios asignados</span>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Reportar quemas de basura con fotografía</span>
                   </li>
                   <li className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Visualizar pesajes y reciclaje en Purificación</span>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Guía campesina de reciclaje y compostaje</span>
                   </li>
                 </ul>
               </div>
             )}
+
+            {/* Quick Role Switcher Buttons */}
+            <div className="pt-3 border-t border-emerald-800/80">
+              <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider block mb-2">
+                Cambiar Rol Activo de mi Perfil
+              </span>
+              <div className="grid grid-cols-3 gap-1.5">
+                <button
+                  id="btn-switch-to-coordinador"
+                  type="button"
+                  onClick={() => handleDirectRoleChange('coordinador')}
+                  className={`py-2 px-1.5 rounded-xl text-[11px] font-bold flex flex-col items-center justify-center transition-all cursor-pointer ${
+                    currentUser.role === 'coordinador'
+                      ? 'bg-purple-600 text-white shadow-md ring-2 ring-purple-300'
+                      : 'bg-white/10 text-emerald-200 hover:bg-white/20'
+                  }`}
+                  title="Cambiar a Coordinador"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 mb-0.5" />
+                  <span>Coordinador</span>
+                </button>
+
+                <button
+                  id="btn-switch-to-conductor"
+                  type="button"
+                  onClick={() => handleDirectRoleChange('conductor')}
+                  className={`py-2 px-1.5 rounded-xl text-[11px] font-bold flex flex-col items-center justify-center transition-all cursor-pointer ${
+                    currentUser.role === 'conductor'
+                      ? 'bg-sky-600 text-white shadow-md ring-2 ring-sky-300'
+                      : 'bg-white/10 text-emerald-200 hover:bg-white/20'
+                  }`}
+                  title="Cambiar a Conductor"
+                >
+                  <Truck className="w-3.5 h-3.5 mb-0.5" />
+                  <span>Conductor</span>
+                </button>
+
+                <button
+                  id="btn-switch-to-habitante"
+                  type="button"
+                  onClick={() => handleDirectRoleChange('habitante')}
+                  className={`py-2 px-1.5 rounded-xl text-[11px] font-bold flex flex-col items-center justify-center transition-all cursor-pointer ${
+                    currentUser.role === 'habitante'
+                      ? 'bg-amber-600 text-white shadow-md ring-2 ring-amber-300'
+                      : 'bg-white/10 text-emerald-200 hover:bg-white/20'
+                  }`}
+                  title="Cambiar a Habitante"
+                >
+                  <UserIcon className="w-3.5 h-3.5 mb-0.5" />
+                  <span>Habitante</span>
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-200 p-4 space-y-2 text-xs">
@@ -477,6 +655,21 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
 
       {/* DIRECTORY OF REGISTERED PERSONS SECTION (Real-time updates) */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+        {deleteStatusMessage && (
+          <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl flex items-center justify-between text-xs font-bold shadow-xs animate-in fade-in">
+            <div className="flex items-center space-x-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+              <span>{deleteStatusMessage}</span>
+            </div>
+            <button
+              onClick={() => setDeleteStatusMessage(null)}
+              className="text-emerald-700 hover:text-emerald-900 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-3 border-b border-gray-100">
           <div>
             <div className="flex items-center space-x-2">
@@ -484,17 +677,17 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
                 <Users className="w-4 h-4" />
               </div>
               <h3 className="text-base font-black text-emerald-950">
-                Directorio de Personas Registradas ({users.length})
+                Directorio de Personas Registradas ({cleanUsers.length})
               </h3>
             </div>
             <p className="text-xs text-gray-500 mt-0.5">
-              Lista sincronizada en tiempo real. En cuanto una persona se registra, su nombre aparece de inmediato en este listado.
+              Lista oficial sin duplicados y sincronizada en tiempo real. Puedes consultar o borrar cualquier habitante registrado si así lo requieres.
             </p>
           </div>
 
           <span className="bg-emerald-50 text-emerald-900 border border-emerald-200 text-[11px] font-bold px-3 py-1 rounded-full flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>{users.length} usuarios activos en Tolima</span>
+            <span>{cleanUsers.length} usuarios únicos registrados</span>
           </span>
         </div>
 
@@ -519,7 +712,7 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
               onChange={e => setRoleFilter(e.target.value as any)}
               className="px-3 py-2 rounded-xl border border-gray-300 text-xs font-bold bg-white text-gray-800 focus:ring-2 focus:ring-emerald-500"
             >
-              <option value="todos">Todos los Roles ({users.length})</option>
+              <option value="todos">Todos los Roles ({cleanUsers.length})</option>
               <option value="habitante">Habitantes</option>
               <option value="conductor">Conductores</option>
               <option value="coordinador">Coordinadores</option>
@@ -538,13 +731,14 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
                 <th className="p-3">Rol / Tipo</th>
                 <th className="p-3">Vereda</th>
                 <th className="p-3">Teléfono</th>
-                <th className="p-3 text-right rounded-r-lg">Estado</th>
+                <th className="p-3">Estado</th>
+                <th className="p-3 text-right rounded-r-lg">Acción</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 font-medium">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-gray-400 text-xs">
+                  <td colSpan={7} className="p-8 text-center text-gray-400 text-xs">
                     No se encontraron usuarios registrados con el criterio de búsqueda "{userSearch}".
                   </td>
                 </tr>
@@ -600,11 +794,24 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
                         {user.phone || '—'}
                       </td>
 
-                      <td className="p-3 text-right">
+                      <td className="p-3">
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-full">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
                           Registrado
                         </span>
+                      </td>
+
+                      <td className="p-3 text-right">
+                        <button
+                          id={`btn-delete-user-${user.id}`}
+                          type="button"
+                          onClick={() => setUserToDelete(user)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-red-600 hover:text-white bg-red-50 hover:bg-red-600 border border-red-200 hover:border-red-600 rounded-lg transition-all cursor-pointer shadow-xs"
+                          title={`Borrar a ${user.name} (${user.role}) del registro`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Borrar</span>
+                        </button>
                       </td>
                     </tr>
                   );
@@ -614,6 +821,75 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
           </table>
         </div>
       </div>
+
+      {/* CONFIRMATION MODAL TO DELETE INHABITANT */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 space-y-4">
+            <div className="flex items-center space-x-3 text-red-600">
+              <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-gray-900">
+                  ¿Borrar habitante del registro?
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Esta acción eliminará al habitante seleccionado de la base de datos de Purificación.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-3.5 border border-gray-200 text-xs space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 font-semibold">Nombre:</span>
+                <span className="font-extrabold text-gray-900">{userToDelete.name}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 font-semibold">Documento / Cédula:</span>
+                <span className="font-mono font-bold text-gray-800">{userToDelete.documentId}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 font-semibold">Rol asignado:</span>
+                <span className="font-bold text-emerald-800 uppercase text-[10px] bg-emerald-100 px-2 py-0.5 rounded">
+                  {userToDelete.role}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 font-semibold">Vereda:</span>
+                <span className="text-gray-700">{userToDelete.vereda}</span>
+              </div>
+              {userToDelete.id === currentUser.id && (
+                <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 font-bold text-[11px] flex items-start gap-1.5">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <span>Atención: Este usuario corresponde a tu sesión activa actual. Si lo eliminas, tu sesión se cerrará automáticamente.</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-2 border-t border-gray-100">
+              <button
+                id="btn-cancel-delete-user"
+                type="button"
+                onClick={() => setUserToDelete(null)}
+                className="px-4 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                id="btn-confirm-delete-user"
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-black transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeleting ? 'Borrando...' : 'Sí, Borrar Habitante'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

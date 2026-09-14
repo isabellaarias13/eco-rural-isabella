@@ -1,5 +1,6 @@
 import { 
   User, 
+  UserRole,
   Truck, 
   RuralRoute, 
   CollectionRecord, 
@@ -94,8 +95,41 @@ class EcoRuralModelStore {
     this.initFirebaseSync();
   }
 
+  public deduplicateUsers(userList: User[]): User[] {
+    const seenIds = new Set<string>();
+    const seenDocs = new Set<string>();
+    const seenEmails = new Set<string>();
+    const result: User[] = [];
+
+    for (const u of userList) {
+      if (!u) continue;
+      const cleanId = (u.id || '').trim();
+      const rawDoc = (u.documentId || '').trim();
+      const cleanDocDigits = rawDoc.replace(/\D/g, '');
+      const cleanEmail = (u.email || '').trim().toLowerCase();
+
+      // Check if duplicate by ID
+      if (cleanId && seenIds.has(cleanId)) continue;
+
+      // Check if duplicate by Document ID (both numeric comparison and exact string)
+      if (cleanDocDigits && cleanDocDigits.length >= 4 && seenDocs.has(cleanDocDigits)) continue;
+      if (rawDoc && rawDoc.length >= 4 && seenDocs.has(rawDoc)) continue;
+
+      // Check if duplicate by Email (if email exists and is valid)
+      if (cleanEmail && cleanEmail.includes('@') && seenEmails.has(cleanEmail)) continue;
+
+      if (cleanId) seenIds.add(cleanId);
+      if (cleanDocDigits && cleanDocDigits.length >= 4) seenDocs.add(cleanDocDigits);
+      if (rawDoc && rawDoc.length >= 4) seenDocs.add(rawDoc);
+      if (cleanEmail && cleanEmail.includes('@')) seenEmails.add(cleanEmail);
+
+      result.push(u);
+    }
+    return result;
+  }
+
   private init() {
-    this.users = loadFromStorage<User[]>(STORAGE_KEYS.USERS, INITIAL_USERS);
+    this.users = this.deduplicateUsers(loadFromStorage<User[]>(STORAGE_KEYS.USERS, INITIAL_USERS));
     // Remove any persisted localStorage user so every device starts at login/register screen
     localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
     
@@ -128,15 +162,15 @@ class EcoRuralModelStore {
       // Listen to users collection
       onSnapshot(collection(db, 'users'), (snapshot) => {
         if (!snapshot.empty) {
-          const remoteUsers = snapshot.docs.map(d => d.data() as User);
+          const remoteUsers = snapshot.docs.map(d => {
+            const data = d.data() as User;
+            return {
+              ...data,
+              id: data.id || d.id
+            } as User;
+          });
           this.isSyncingFromFirebase = true;
-          // Merge remote users with local users so newly created users are preserved
-          const userMap = new Map<string, User>();
-          // Remote users first
-          remoteUsers.forEach(u => userMap.set(u.id, u));
-          // Local users take precedence to keep freshly registered users immediately
-          this.users.forEach(u => userMap.set(u.id, u));
-          this.users = Array.from(userMap.values());
+          this.users = this.deduplicateUsers(remoteUsers);
           saveToStorage(STORAGE_KEYS.USERS, this.users);
           
           // Only update currentUser if one was already explicitly logged in; DO NOT override with users[0]
@@ -282,6 +316,7 @@ class EcoRuralModelStore {
   }
 
   public getState(): EcoRuralState {
+    this.users = this.deduplicateUsers(this.users);
     return {
       currentUser: this.currentUser,
       users: [...this.users],
@@ -672,6 +707,7 @@ class EcoRuralModelStore {
   }
 
   public getUsers(): User[] {
+    this.users = this.deduplicateUsers(this.users);
     return [...this.users];
   }
 
@@ -708,8 +744,16 @@ class EcoRuralModelStore {
   }
 
   public addUser(user: User): void {
-    // Put new registered user at index 0 so they appear immediately at the top of the registered list
-    this.users = [user, ...this.users.filter(u => u.id !== user.id && u.documentId !== user.documentId)];
+    // Put new registered user at index 0 and deduplicate against existing
+    const cleanDoc = user.documentId ? user.documentId.replace(/\D/g, '') : '';
+    const filteredExisting = this.users.filter(u => {
+      if (u.id === user.id) return false;
+      const uDocDigits = u.documentId ? u.documentId.replace(/\D/g, '') : '';
+      if (cleanDoc && cleanDoc.length >= 4 && uDocDigits === cleanDoc) return false;
+      return true;
+    });
+
+    this.users = this.deduplicateUsers([user, ...filteredExisting]);
     saveToStorage(STORAGE_KEYS.USERS, this.users);
     this.setCurrentUser(user);
     setDoc(doc(db, 'users', user.id), user).catch(err => console.warn('Firestore write user:', err));
@@ -717,7 +761,7 @@ class EcoRuralModelStore {
     // Register a system notification so the new user appears in notifications immediately
     this.addNotification({
       id: `notif-user-${Date.now()}`,
-      title: 'Nuevo Usuario Registrado',
+      title: 'Nuevo Habitante/Usuario Registrado',
       message: `${user.name} (${user.role.toUpperCase()}) se ha registrado en el sistema rural para la vereda ${user.vereda}.`,
       timestamp: 'Ahora mismo',
       type: 'comunidad',
@@ -726,6 +770,59 @@ class EcoRuralModelStore {
     });
 
     this.notify();
+  }
+
+  public deleteUser(userId: string): { success: boolean; message: string; deletedUser?: User } {
+    const target = this.users.find(u => u.id === userId);
+    if (!target) {
+      return { success: false, message: 'Usuario no encontrado en la base de datos.' };
+    }
+
+    const cleanDoc = target.documentId ? target.documentId.replace(/\D/g, '') : '';
+    const cleanEmail = (target.email || '').trim().toLowerCase();
+    
+    // Remove user and any accidental clone by doc digits or email or id
+    this.users = this.users.filter(u => {
+      if (u.id === userId) return false;
+      if (cleanDoc && cleanDoc.length >= 4 && u.documentId.replace(/\D/g, '') === cleanDoc) return false;
+      if (cleanEmail && cleanEmail.includes('@') && (u.email || '').trim().toLowerCase() === cleanEmail) return false;
+      return true;
+    });
+    this.users = this.deduplicateUsers(this.users);
+    saveToStorage(STORAGE_KEYS.USERS, this.users);
+
+    // Delete in Firestore
+    deleteDoc(doc(db, 'users', userId)).catch(err => {
+      console.warn('Firestore delete user error:', err);
+    });
+    if (cleanDoc && cleanDoc !== userId) {
+      deleteDoc(doc(db, 'users', cleanDoc)).catch(() => {});
+    }
+    if (target.documentId && target.documentId !== userId && target.documentId !== cleanDoc) {
+      deleteDoc(doc(db, 'users', target.documentId)).catch(() => {});
+    }
+
+    // If deleting the current user in session
+    if (this.currentUser?.id === userId || (cleanDoc && this.currentUser?.documentId.replace(/\D/g, '') === cleanDoc)) {
+      this.currentUser = this.users.length > 0 ? this.users[0] : null;
+      if (this.currentUser) {
+        sessionStorage.setItem('ecorural_session_user', JSON.stringify(this.currentUser));
+      } else {
+        sessionStorage.removeItem('ecorural_session_user');
+      }
+    }
+
+    this.addNotification({
+      id: `notif-user-del-${Date.now()}`,
+      title: 'Registro de Habitante Eliminado',
+      message: `El habitante/usuario ${target.name} (${target.role.toUpperCase()}) ha sido eliminado del sistema.`,
+      timestamp: 'Ahora mismo',
+      type: 'alerta',
+      read: false
+    });
+
+    this.notify();
+    return { success: true, message: `El habitante ${target.name} fue eliminado con éxito.`, deletedUser: target };
   }
 
   public updateUserProfile(userId: string, data: Partial<User>): { success: boolean; user?: User; message: string } {
@@ -759,6 +856,28 @@ class EcoRuralModelStore {
 
     this.notify();
     return { success: true, user: updatedUser, message: 'Perfil actualizado con éxito.' };
+  }
+
+  public updateUserRole(userId: string, newRole: UserRole): User | null {
+    const userIndex = this.users.findIndex(u => u.id === userId);
+    if (userIndex === -1) return null;
+
+    const updatedUser: User = {
+      ...this.users[userIndex],
+      role: newRole
+    };
+
+    this.users[userIndex] = updatedUser;
+    saveToStorage(STORAGE_KEYS.USERS, this.users);
+    setDoc(doc(db, 'users', userId), updatedUser).catch(err => console.warn('Firestore update role:', err));
+
+    if (this.currentUser?.id === userId) {
+      this.currentUser = updatedUser;
+      sessionStorage.setItem('ecorural_session_user', JSON.stringify(updatedUser));
+    }
+
+    this.notify();
+    return updatedUser;
   }
 
   public updateUserPassword(documentIdOrEmailOrPhone: string, newPassword: string): { success: boolean; message: string; user?: User } {

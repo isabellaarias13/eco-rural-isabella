@@ -15,7 +15,8 @@ import {
   Calendar, 
   Search,
   ShieldAlert,
-  Info
+  Info,
+  Trash2
 } from 'lucide-react';
 import { AppNotification, User } from '../types';
 import { modelStore } from '../models/store';
@@ -38,6 +39,14 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isExportingCSV, setIsExportingCSV] = useState(false);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [deleteStatusMessage, setDeleteStatusMessage] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Clean deduplicated users list
+  const cleanUsers = React.useMemo(() => {
+    return modelStore.deduplicateUsers(users);
+  }, [users]);
 
   if (!isOpen) return null;
 
@@ -50,7 +59,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   const handleExportUsersCSV = () => {
     setIsExportingCSV(true);
     try {
-      ReportController.exportUsersToCSV(users);
+      ReportController.exportUsersToCSV(cleanUsers);
     } catch (e) {
       console.error(e);
     } finally {
@@ -61,7 +70,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   const handleExportUsersPDF = () => {
     setIsExportingPDF(true);
     try {
-      ReportController.exportUsersToPDF(users);
+      ReportController.exportUsersToPDF(cleanUsers);
     } catch (e) {
       console.error(e);
     } finally {
@@ -69,7 +78,25 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     }
   };
 
-  const filteredUsers = users.filter(u => {
+  const handleConfirmDelete = () => {
+    if (!userToDelete) return;
+    setIsDeleting(true);
+    const targetName = userToDelete.name;
+    const targetRole = userToDelete.role;
+    const result = modelStore.deleteUser(userToDelete.id);
+    setIsDeleting(false);
+    setUserToDelete(null);
+
+    if (result.success) {
+      setDeleteStatusMessage(`El usuario "${targetName}" (${targetRole.toUpperCase()}) fue eliminado del registro exitosamente.`);
+      setTimeout(() => setDeleteStatusMessage(null), 4500);
+    } else {
+      setDeleteStatusMessage(result.message);
+      setTimeout(() => setDeleteStatusMessage(null), 4500);
+    }
+  };
+
+  const filteredUsers = cleanUsers.filter(u => {
     const q = searchQuery.toLowerCase();
     return (
       u.name.toLowerCase().includes(q) ||
@@ -146,7 +173,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
             <Users className="w-4 h-4 text-emerald-600" />
             <span>Usuarios Registrados</span>
             <span className="bg-gray-200 text-gray-800 text-[10px] font-black px-1.5 py-0.2 rounded-full">
-              {users.length}
+              {cleanUsers.length}
             </span>
           </button>
         </div>
@@ -229,15 +256,30 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
           {/* TAB 2: REGISTERED USERS LIST & DOWNLOADS */}
           {activeTab === 'usuarios' && (
             <div className="space-y-4">
+              {deleteStatusMessage && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl flex items-center justify-between text-xs font-bold shadow-xs animate-in fade-in">
+                  <div className="flex items-center space-x-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <span>{deleteStatusMessage}</span>
+                  </div>
+                  <button
+                    onClick={() => setDeleteStatusMessage(null)}
+                    className="text-emerald-700 hover:text-emerald-900 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
               {/* Header Action Bar for Users */}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-200">
                 <div>
                   <h4 className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
                     <Users className="w-4 h-4 text-emerald-700" />
-                    <span>Censo de Usuarios de Purificación ({users.length})</span>
+                    <span>Censo de Usuarios de Purificación ({cleanUsers.length})</span>
                   </h4>
                   <p className="text-[11px] text-emerald-800 mt-0.5">
-                    Descarga el listado completo para gestión municipal o control veredal.
+                    Descarga el listado completo o elimina cualquier usuario que desees dar de baja.
                   </p>
                 </div>
 
@@ -287,7 +329,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                   filteredUsers.map(user => (
                     <div
                       key={user.id}
-                      className="p-3 bg-white hover:bg-gray-50/80 rounded-xl border border-gray-200 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-sm"
+                      className="p-3 bg-white hover:bg-gray-50/80 rounded-xl border border-gray-200 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm"
                     >
                       <div className="flex items-center space-x-3">
                         <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-900 flex items-center justify-center font-black text-xs border border-emerald-300 shrink-0">
@@ -320,15 +362,29 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                         </div>
                       </div>
 
-                      <div className="text-right text-[11px] text-gray-400 sm:shrink-0">
-                        {user.email ? (
-                          <div className="text-emerald-700 font-medium truncate max-w-[160px]">{user.email}</div>
-                        ) : (
-                          <div className="italic text-gray-400">Sin correo</div>
-                        )}
-                        <div className="text-[10px] text-gray-400 mt-0.5">
-                          {user.createdAt ? `Reg: ${user.createdAt}` : 'Usuario inicial'}
+                      <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100">
+                        <div className="text-left sm:text-right text-[11px] text-gray-400 sm:shrink-0">
+                          {user.email ? (
+                            <div className="text-emerald-700 font-medium truncate max-w-[150px]">{user.email}</div>
+                          ) : (
+                            <div className="italic text-gray-400">Sin correo</div>
+                          )}
+                          <div className="text-[10px] text-gray-400 mt-0.5">
+                            {user.createdAt ? `Reg: ${user.createdAt}` : 'Usuario inicial'}
+                          </div>
                         </div>
+
+                        {/* DELETE BUTTON */}
+                        <button
+                          id={`btn-modal-delete-user-${user.id}`}
+                          type="button"
+                          onClick={() => setUserToDelete(user)}
+                          className="px-2.5 py-1.5 bg-red-50 hover:bg-red-600 text-red-600 hover:text-white border border-red-200 hover:border-red-600 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs shrink-0 active:scale-95"
+                          title={`Eliminar usuario ${user.name}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Eliminar</span>
+                        </button>
                       </div>
                     </div>
                   ))
@@ -348,6 +404,67 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
             Cerrar
           </button>
         </div>
+
+        {/* MODAL CONFIRMATION TO DELETE USER */}
+        {userToDelete && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-gray-100 space-y-4 animate-in zoom-in-95">
+              <div className="flex items-center space-x-3 text-red-600">
+                <div className="w-11 h-11 rounded-2xl bg-red-100 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-gray-900">
+                    ¿Eliminar usuario del registro?
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Esta acción quitará al habitante o usuario de la base de datos de Purificación de forma permanente.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-3 border border-gray-200 text-xs space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500 font-semibold">Nombre:</span>
+                  <span className="font-extrabold text-gray-900">{userToDelete.name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500 font-semibold">Documento / C.C.:</span>
+                  <span className="font-mono font-bold text-gray-800">{userToDelete.documentId}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500 font-semibold">Rol asignado:</span>
+                  <span className="font-bold text-emerald-800 uppercase text-[10px] bg-emerald-100 px-2 py-0.5 rounded">
+                    {userToDelete.role}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500 font-semibold">Vereda:</span>
+                  <span className="text-gray-700">{userToDelete.vereda}</span>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setUserToDelete(null)}
+                  className="px-4 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={handleConfirmDelete}
+                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-black transition-colors cursor-pointer shadow-xs flex items-center gap-1.5 active:scale-95"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{isDeleting ? 'Eliminando...' : 'Sí, Eliminar Usuario'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

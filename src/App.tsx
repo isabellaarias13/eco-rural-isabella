@@ -125,6 +125,7 @@ export default function App() {
               currentUser={state.currentUser}
               users={state.users}
               onNavigateTab={tab => setActiveTab(tab)}
+              onLogout={handleLogout}
             />
           )}
         </ErrorBoundary>

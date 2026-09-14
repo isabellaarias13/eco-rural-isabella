@@ -21,7 +21,6 @@ import {
 import { PURIFICACION_VEREDAS } from '../models/veredasData';
 import { UserRole } from '../types';
 import { AuthController } from '../controllers/authController';
-import { modelStore } from '../models/store';
 
 interface AuthViewProps {
   onSuccess: () => void;
@@ -67,12 +66,18 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
     e.preventDefault();
     setErrorMsg('');
 
-    if (!emailOrDoc.trim()) {
-      setErrorMsg('Por favor ingresa tu número de documento, usuario o correo.');
+    const cleanInput = emailOrDoc.trim();
+    if (!cleanInput) {
+      setErrorMsg('Por favor escribe tu número de documento, cédula o correo.');
       return;
     }
 
-    const result = AuthController.login(emailOrDoc, password);
+    if (!password) {
+      setErrorMsg('Por favor escribe tu contraseña personal para acceder.');
+      return;
+    }
+
+    const result = AuthController.login(cleanInput, password, selectedRole || undefined);
     if (!result.success) {
       setErrorMsg(result.message || 'Error al iniciar sesión.');
       return;
@@ -175,22 +180,16 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
     setPassword(newPassword);
   };
 
-  // Demo account selection state (Only fills credentials in the form as an option before entering)
-  const [selectedDemoRole, setSelectedDemoRole] = useState<UserRole | null>(null);
+  // Selected role option (leaves input boxes completely empty so users type their personal info)
+  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
 
-  const getDemoUser = (role: UserRole) => {
-    const users = modelStore.getUsers();
-    return users.find(u => u.role === role);
-  };
-
-  const handleSelectDemoAccount = (role: UserRole) => {
-    const user = getDemoUser(role);
-    if (user) {
-      setEmailOrDoc(user.documentId);
-      setPassword(user.password || '123456');
-      setSelectedDemoRole(role);
-      setErrorMsg('');
-    }
+  const handleSelectRole = (role: UserRole) => {
+    // If clicking the active role again, toggle off; otherwise select the role
+    setSelectedRole(prev => (prev === role ? null : role));
+    // KEEP BOXES COMPLETELY EMPTY so each person enters their own info!
+    setEmailOrDoc('');
+    setPassword('');
+    setErrorMsg('');
   };
 
   return (
@@ -349,31 +348,31 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                   </div>
                 </div>
 
-                {/* Feedback when a demo account is selected */}
-                {selectedDemoRole && (
+                {/* Feedback when a role option is selected */}
+                {selectedRole && (
                   <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-950 flex items-start justify-between animate-in fade-in">
                     <div className="flex items-start space-x-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                       <div>
-                        <div className="font-extrabold text-emerald-900">
-                          Cuenta seleccionada: {getDemoUser(selectedDemoRole)?.name || selectedDemoRole}
+                        <div className="font-extrabold text-emerald-900 capitalize">
+                          Opción elegida: {selectedRole}
                         </div>
                         <p className="text-[11px] text-emerald-700 leading-snug mt-0.5">
-                          Cédula y contraseña autocompletadas en el formulario. Haz clic en <strong>"Ingresar al Sistema Rural"</strong> para confirmar y acceder.
+                          Las casillas están en blanco para tus datos personales. Al iniciar sesión, entrarás y se mostrará en tu perfil como <strong>{selectedRole}</strong>.
                         </p>
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => {
-                        setSelectedDemoRole(null);
+                        setSelectedRole(null);
                         setEmailOrDoc('');
                         setPassword('');
                       }}
                       className="text-[10px] font-bold text-gray-500 hover:text-red-600 ml-2 px-2 py-1 rounded bg-white border border-gray-200 shrink-0 cursor-pointer"
-                      title="Limpiar campos"
+                      title="Quitar rol seleccionado"
                     >
-                      Limpiar
+                      Quitar
                     </button>
                   </div>
                 )}
@@ -387,19 +386,19 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                   <ArrowRight className="w-4 h-4" />
                 </button>
 
-                {/* Acceso Rápido de Demostración - Solo como opción previa para cargar la cuenta antes de entrar */}
+                {/* Acceso por Rol - Sin datos pre-rellenados para que cada persona ingrese su propia información */}
                 <div className="mt-5 pt-4 border-t border-gray-200">
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center space-x-1.5 text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Acceso Rápido de Demostración</span>
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Acceso por Rol</span>
                     </div>
                     <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                       Opción antes de entrar
                     </span>
                   </div>
                   <p className="text-[11px] text-gray-500 mb-2.5 leading-snug">
-                    Selecciona una cuenta de prueba para autocompletar la cédula y la contraseña en los campos de arriba. <strong>No entrará directamente sin pedir la cuenta</strong>; deberás confirmar haciendo clic en el botón de ingreso.
+                    Elige si ingresarás como <strong>Coordinador</strong>, <strong>Conductor</strong> o <strong>Habitante</strong>. En las casillas no aparecerá ninguna información para que digites tus datos, y al entrar se activará y se mostrará esa opción en tu perfil.
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -407,27 +406,26 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                     <button
                       id="btn-demo-coordinador"
                       type="button"
-                      onClick={() => handleSelectDemoAccount('coordinador')}
-                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                        selectedDemoRole === 'coordinador'
+                      onClick={() => handleSelectRole('coordinador')}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        selectedRole === 'coordinador'
                           ? 'border-emerald-600 bg-emerald-50/90 ring-2 ring-emerald-500/20'
                           : 'border-gray-200 bg-gray-50/80 hover:bg-gray-100 hover:border-gray-300'
                       }`}
                     >
-                      <div className="flex items-center justify-between w-full mb-1">
-                        <span className="text-[11px] font-black text-purple-900 flex items-center gap-1">
-                          <ShieldCheck className="w-3 h-3 text-purple-600" />
-                          Coordinador
-                        </span>
-                        {selectedDemoRole === 'coordinador' && (
+                      <div className="flex items-center justify-between w-full mb-1.5">
+                        <div className="flex items-center space-x-1.5">
+                          <div className="p-1 rounded-lg bg-purple-100 text-purple-700">
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs font-bold text-gray-900">Coordinador</span>
+                        </div>
+                        {selectedRole === 'coordinador' && (
                           <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
                         )}
                       </div>
-                      <div className="text-[11px] font-bold text-gray-800 truncate">
-                        {getDemoUser('coordinador')?.name || 'Carlos Morales'}
-                      </div>
-                      <div className="text-[10px] text-gray-400 font-mono mt-0.5">
-                        CC: 93.382.410
+                      <div className="text-[11px] font-semibold text-purple-800">
+                        Entrar como Coordinador
                       </div>
                     </button>
 
@@ -435,27 +433,26 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                     <button
                       id="btn-demo-conductor"
                       type="button"
-                      onClick={() => handleSelectDemoAccount('conductor')}
-                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                        selectedDemoRole === 'conductor'
+                      onClick={() => handleSelectRole('conductor')}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        selectedRole === 'conductor'
                           ? 'border-emerald-600 bg-emerald-50/90 ring-2 ring-emerald-500/20'
                           : 'border-gray-200 bg-gray-50/80 hover:bg-gray-100 hover:border-gray-300'
                       }`}
                     >
-                      <div className="flex items-center justify-between w-full mb-1">
-                        <span className="text-[11px] font-black text-sky-900 flex items-center gap-1">
-                          <Truck className="w-3 h-3 text-sky-600" />
-                          Conductor
-                        </span>
-                        {selectedDemoRole === 'conductor' && (
+                      <div className="flex items-center justify-between w-full mb-1.5">
+                        <div className="flex items-center space-x-1.5">
+                          <div className="p-1 rounded-lg bg-sky-100 text-sky-700">
+                            <Truck className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs font-bold text-gray-900">Conductor</span>
+                        </div>
+                        {selectedRole === 'conductor' && (
                           <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
                         )}
                       </div>
-                      <div className="text-[11px] font-bold text-gray-800 truncate">
-                        {getDemoUser('conductor')?.name || 'Jairo Benítez'}
-                      </div>
-                      <div className="text-[10px] text-gray-400 font-mono mt-0.5">
-                        CC: 14.280.993
+                      <div className="text-[11px] font-semibold text-sky-800">
+                        Entrar como Conductor
                       </div>
                     </button>
 
@@ -463,27 +460,26 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                     <button
                       id="btn-demo-habitante"
                       type="button"
-                      onClick={() => handleSelectDemoAccount('habitante')}
-                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                        selectedDemoRole === 'habitante'
+                      onClick={() => handleSelectRole('habitante')}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        selectedRole === 'habitante'
                           ? 'border-emerald-600 bg-emerald-50/90 ring-2 ring-emerald-500/20'
                           : 'border-gray-200 bg-gray-50/80 hover:bg-gray-100 hover:border-gray-300'
                       }`}
                     >
-                      <div className="flex items-center justify-between w-full mb-1">
-                        <span className="text-[11px] font-black text-amber-900 flex items-center gap-1">
-                          <UserIcon className="w-3 h-3 text-amber-600" />
-                          Habitante
-                        </span>
-                        {selectedDemoRole === 'habitante' && (
+                      <div className="flex items-center justify-between w-full mb-1.5">
+                        <div className="flex items-center space-x-1.5">
+                          <div className="p-1 rounded-lg bg-amber-100 text-amber-700">
+                            <UserIcon className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-xs font-bold text-gray-900">Habitante</span>
+                        </div>
+                        {selectedRole === 'habitante' && (
                           <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
                         )}
                       </div>
-                      <div className="text-[11px] font-bold text-gray-800 truncate">
-                        {getDemoUser('habitante')?.name || 'Esperanza Guzmán'}
-                      </div>
-                      <div className="text-[10px] text-gray-400 font-mono mt-0.5">
-                        CC: 65.742.118
+                      <div className="text-[11px] font-semibold text-amber-800">
+                        Entrar como Habitante
                       </div>
                     </button>
                   </div>

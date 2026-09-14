@@ -2,42 +2,74 @@ import { modelStore } from '../models/store';
 import { User, UserRole } from '../types';
 
 export class AuthController {
-  public static login(emailOrDocument: string, password?: string): { success: boolean; user?: User; message?: string } {
+  public static login(
+    emailOrDocument: string, 
+    password?: string, 
+    overrideRole?: UserRole
+  ): { success: boolean; user?: User; message?: string } {
     const cleanQuery = emailOrDocument.trim().toLowerCase();
     const cleanNumbers = cleanQuery.replace(/\D/g, '');
     const users = modelStore.getUsers();
 
-    const matchedUser = users.find(u => {
-      const uEmail = (u.email || '').toLowerCase();
+    if (!cleanQuery) {
+      return {
+        success: false,
+        message: 'Debes ingresar tu número de cédula o correo electrónico.'
+      };
+    }
+
+    let matchedUser = users.find(u => {
+      const uEmail = (u.email || '').toLowerCase().trim();
       const uDocNumbers = u.documentId.replace(/\D/g, '');
       const uPhone = u.phone.replace(/\D/g, '');
+      const uName = u.name.toLowerCase().trim();
+      const uDoc = u.documentId.toLowerCase().trim();
 
       return (
         (cleanQuery && uEmail === cleanQuery) ||
-        (cleanNumbers.length > 3 && (uDocNumbers === cleanNumbers || uPhone === cleanNumbers)) ||
-        (cleanQuery && u.name.toLowerCase() === cleanQuery)
+        (cleanNumbers.length >= 4 && (uDocNumbers === cleanNumbers || uPhone === cleanNumbers)) ||
+        (cleanQuery && (uDoc === cleanQuery || uName === cleanQuery))
       );
     });
 
     if (!matchedUser) {
-      return { 
-        success: false, 
-        message: 'No se encontró ningún usuario con ese documento o correo. Por favor verifica los datos o crea una cuenta.' 
+      return {
+        success: false,
+        message: 'No existe ningún usuario o habitante registrado con este documento o correo. Si eres un nuevo habitante, regístrate en la pestaña "Crear Cuenta".'
       };
     }
 
-    // Verify password if provided
-    if (password !== undefined && password !== '') {
-      if (matchedUser.password && matchedUser.password !== password) {
-        return {
-          success: false,
-          message: 'La contraseña es incorrecta. Haz clic en "¿Olvidaste tu contraseña?" si necesitas recuperarla.'
-        };
+    // STRICT PASSWORD VERIFICATION:
+    // Only the registered password for this user is accepted; reject if different or empty.
+    const inputPass = (password || '').trim();
+    if (!inputPass) {
+      return {
+        success: false,
+        message: 'Debes ingresar tu contraseña para iniciar sesión.'
+      };
+    }
+
+    const expectedPass = (matchedUser.password || '123456').trim();
+    if (inputPass !== expectedPass) {
+      return {
+        success: false,
+        message: 'Contraseña incorrecta. Debes ingresar exactamente la contraseña con la que te registraste (no se permite otra contraseña distinta). Si la olvidaste, recupérala abajo.'
+      };
+    }
+
+    // If user chose a role before logging in, apply that role so it appears in their profile
+    let activeUser = matchedUser;
+    if (overrideRole && matchedUser.role !== overrideRole) {
+      const updated = modelStore.updateUserRole(matchedUser.id, overrideRole);
+      if (updated) {
+        activeUser = updated;
+      } else {
+        activeUser = { ...matchedUser, role: overrideRole };
       }
     }
 
-    modelStore.setCurrentUser(matchedUser);
-    return { success: true, user: matchedUser };
+    modelStore.setCurrentUser(activeUser);
+    return { success: true, user: activeUser };
   }
 
   public static register(data: {
@@ -62,10 +94,16 @@ export class AuthController {
     // Check if user already exists
     const users = modelStore.getUsers();
     const cleanDoc = data.documentId.replace(/\D/g, '');
-    const alreadyExists = users.some(u => u.documentId.replace(/\D/g, '') === cleanDoc);
+    const cleanEmail = (data.email || '').trim().toLowerCase();
+    const alreadyExists = users.some(u => {
+      const uDoc = u.documentId.replace(/\D/g, '');
+      const uEmail = (u.email || '').trim().toLowerCase();
+      return (cleanDoc && cleanDoc.length >= 4 && uDoc === cleanDoc) ||
+             (cleanEmail && cleanEmail.includes('@') && uEmail === cleanEmail);
+    });
 
     if (alreadyExists) {
-      return { success: false, user: null as any, message: 'Ya existe un usuario registrado con este número de documento.' };
+      return { success: false, user: null as any, message: 'Ya existe un usuario o habitante registrado con este número de documento/cédula o correo electrónico.' };
     }
 
     const newUser: User = {
