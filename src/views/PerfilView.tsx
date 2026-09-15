@@ -102,10 +102,9 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
 
   const handlePerformLogout = () => {
     setShowLogoutModal(false);
+    AuthController.logout();
     if (onLogout) {
       onLogout();
-    } else {
-      AuthController.logout();
     }
   };
 
@@ -650,6 +649,28 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
               Estás vinculado a la vereda <strong>{currentUser.vereda}</strong>. Las notificaciones de recolección y alertas comunitarias se orientarán principalmente a tu sector rural.
             </p>
           </div>
+
+          <div className="bg-white rounded-2xl border border-red-100 p-4 space-y-2.5 text-xs shadow-xs">
+            <h5 className="font-black text-gray-900 uppercase tracking-wider text-[11px] flex items-center justify-between">
+              <span>Sesión Activa</span>
+              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Conectado
+              </span>
+            </h5>
+            <p className="text-gray-500 leading-relaxed text-[11px]">
+              Iniciaste sesión como <strong>{currentUser.name}</strong> ({currentUser.role}). Puedes cerrar sesión en cualquier momento.
+            </p>
+            <button
+              id="btn-sidebar-logout"
+              type="button"
+              onClick={() => setShowLogoutModal(true)}
+              className="w-full py-2.5 px-3 bg-red-50 hover:bg-red-600 text-red-600 hover:text-white border border-red-200 hover:border-red-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-xs active:scale-95"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Cerrar Mi Sesión</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -885,6 +906,72 @@ export const PerfilView: React.FC<PerfilViewProps> = ({
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{isDeleting ? 'Borrando...' : 'Sí, Borrar Habitante'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CONFIRMATION: LOGOUT */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 space-y-4 animate-in zoom-in-95">
+            <div className="flex items-center space-x-3.5 text-red-600">
+              <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center shrink-0">
+                <LogOut className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-gray-900">
+                  ¿Estás seguro de que deseas cerrar sesión?
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Saldrás del sistema Eco-Rural de Purificación
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-3.5 border border-gray-200 text-xs space-y-2.5">
+              <p className="text-gray-600 leading-relaxed">
+                Estás a punto de desconectar tu cuenta activa: <strong className="text-gray-900">{currentUser.name}</strong>.
+              </p>
+              <div className="bg-white rounded-lg p-2.5 border border-gray-200 grid grid-cols-2 gap-2 text-[11px]">
+                <div>
+                  <span className="text-gray-400 block font-medium">Documento / C.C.:</span>
+                  <span className="font-mono font-bold text-gray-800">{currentUser.documentId}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400 block font-medium">Rol del Usuario:</span>
+                  <span className="font-bold text-emerald-800 uppercase text-[10px] bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                    {currentUser.role}
+                  </span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-gray-400 block font-medium">Vereda Asignada:</span>
+                  <span className="font-semibold text-gray-700">{currentUser.vereda}</span>
+                </div>
+              </div>
+              <p className="text-[11px] text-gray-500">
+                Para volver a ingresar después, deberás ingresar tu número de cédula y tu contraseña.
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-2.5 pt-2 border-t border-gray-100">
+              <button
+                id="btn-cancel-logout"
+                type="button"
+                onClick={() => setShowLogoutModal(false)}
+                className="px-4 py-2 rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                No, quedarme aquí
+              </button>
+              <button
+                id="btn-confirm-logout"
+                type="button"
+                onClick={handlePerformLogout}
+                className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-black transition-all cursor-pointer shadow-md flex items-center gap-1.5 active:scale-95"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sí, Cerrar Sesión</span>
               </button>
             </div>
           </div>
